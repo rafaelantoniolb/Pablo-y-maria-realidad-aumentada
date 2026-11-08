@@ -10,8 +10,7 @@
       "imports": {
         "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
         "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
-        "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js",
-        "mindar-image": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js"
+        "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
       }
     }
   </script>
@@ -66,7 +65,7 @@
       </p>
     </div>
 
-    <!-- Modal con la Imagen Marcador + Compilador para subir cualquier imagen propia -->
+    <!-- Modal con la Imagen Marcador + Selector para subir cualquier imagen propia -->
     <div id="marker-modal" class="modal hidden">
       <div class="modal-card">
         <div class="modal-header">
@@ -74,7 +73,7 @@
           <button id="btn-close-modal" class="close-btn">✕</button>
         </div>
         <p class="modal-desc">
-          Cuando la cámara ve esta imagen en la mesa, despliega el personaje 3D encima. Puedes apuntar a esta imagen en otro dispositivo o <strong>subir tu propio logo/foto abajo</strong>:
+          Cuando la cámara ve esta imagen en la mesa, despliega el personaje 3D encima. Puedes apuntar a esta imagen o <strong>subir tu propio logo/foto abajo</strong>:
         </p>
         <div class="marker-img-wrapper">
           <img id="modal-marker-img" src="./models/card.png" alt="Marcador AR" />
@@ -83,7 +82,7 @@
         <!-- Selector para definir cualquier imagen propia en vivo -->
         <div class="custom-marker-box">
           <label for="upload-marker-input" class="pill-btn highlight-btn upload-label">
-            📤 Subir otra imagen / logo como Marcador
+            📤 Subir mi propia foto / logo
           </label>
           <input type="file" id="upload-marker-input" accept="image/*" hidden />
           <span id="compile-status" class="compile-status"></span>
@@ -92,7 +91,7 @@
         <div class="modal-footer">
           <button id="btn-download-mind" class="pill-btn hidden">💾 Descargar .mind</button>
           <a id="link-open-marker" href="./models/card.png" target="_blank" class="pill-btn">Abrir imagen sola</a>
-          <button id="btn-force-show" class="pill-btn">Ver en Mesa 3D (Sin cámara)</button>
+          <button id="btn-force-show" class="pill-btn">Aplicar y Ver en Mesa</button>
         </div>
       </div>
     </div>
