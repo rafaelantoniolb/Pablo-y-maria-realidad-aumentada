@@ -71,7 +71,12 @@ const rig = {
   grillStation: null,
   grillBurger: null,
   emberLight: null,
-  grillParticles: []
+  grillParticles: [],
+  pizzaStation: null,
+  pizzaDough: null,
+  pizzaPeel: null,
+  pizzaBaked: null,
+  ovenLight: null
 };
 
 // Vector analógico 360° del Joystick (-1 a +1) + Velocidad con inercia suave
@@ -737,60 +742,66 @@ function buildChibiPablitoChef() {
   rig.head.add(smileGroup);
 
   // ==========================================
-  // 3) CABELLO CASTAÑO CON FLEQUILLO PEINADO DE LADO Y PUNTAS LATERALES
-  // (Sin tapar la frente ni los ojos — despejado como en la plantilla)
+  // 3) CABELLO CASTAÑO ESCULPIDO CON MECHONES (CERO ESFERA EN LA CARA — SIN ANTIFAZ)
   // ==========================================
   const hairGroup = new THREE.Group();
   rig.head.add(hairGroup);
 
-  // Casco capilar que cubre SOLO la coronilla y la nuca (inclinado hacia atrás para dejar toda la cara limpia)
-  const backHairGeo = new THREE.SphereGeometry(0.252, 32, 24, 0, Math.PI * 2, 0, Math.PI * 0.44);
-  backHairGeo.scale(1.08, 0.96, 0.96);
+  // Nuca/parte trasera (estrictamente detrás de las orejas z = -0.055, jamás toca la frente ni los ojos)
+  const backHairGeo = new THREE.SphereGeometry(0.228, 28, 22);
+  backHairGeo.scale(1.06, 0.92, 0.78);
   const backHair = new THREE.Mesh(backHairGeo, hairMat);
-  backHair.rotation.x = -0.58;
-  backHair.position.set(0, 0.03, -0.02);
+  backHair.position.set(0, 0.045, -0.055);
   hairGroup.add(backHair);
 
-  // Flequillo superior peinado de lado (bien arriba en la frente, por encima de las cejas)
-  const bangMainGeo = new THREE.CapsuleGeometry(0.044, 0.19, 14, 20);
-  bangMainGeo.scale(1, 0.85, 0.55);
-  const bangMain = new THREE.Mesh(bangMainGeo, hairMat);
-  bangMain.position.set(-0.015, 0.155, 0.178);
-  bangMain.rotation.z = Math.PI / 2 - 0.14;
-  bangMain.rotation.y = -0.08;
-  hairGroup.add(bangMain);
+  // Flequillo frontal esculpido como en la plantilla (arriba de las cejas y >= 0.135, dejando los ojos 100% en piel clara)
+  const bangCenterGeo = new THREE.CapsuleGeometry(0.038, 0.15, 14, 18);
+  bangCenterGeo.scale(1, 0.9, 0.55);
+  const bangCenter = new THREE.Mesh(bangCenterGeo, hairMat);
+  bangCenter.position.set(-0.02, 0.148, 0.185);
+  bangCenter.rotation.z = Math.PI / 2 - 0.15;
+  bangCenter.rotation.y = -0.08;
+  hairGroup.add(bangCenter);
 
-  const bangSideGeo = new THREE.CapsuleGeometry(0.036, 0.12, 12, 16);
-  bangSideGeo.scale(1, 0.85, 0.5);
-  const bangSide = new THREE.Mesh(bangSideGeo, hairMat);
-  bangSide.position.set(-0.115, 0.142, 0.165);
-  bangSide.rotation.z = Math.PI / 2 - 0.28;
-  bangSide.rotation.y = -0.32;
-  hairGroup.add(bangSide);
+  const bangLeftGeo = new THREE.CapsuleGeometry(0.034, 0.11, 12, 16);
+  bangLeftGeo.scale(1, 0.85, 0.52);
+  const bangLeft = new THREE.Mesh(bangLeftGeo, hairMat);
+  bangLeft.position.set(-0.125, 0.138, 0.162);
+  bangLeft.rotation.z = Math.PI / 2 - 0.32;
+  bangLeft.rotation.y = -0.38;
+  hairGroup.add(bangLeft);
+
+  const bangRightGeo = new THREE.CapsuleGeometry(0.034, 0.11, 12, 16);
+  bangRightGeo.scale(1, 0.85, 0.52);
+  const bangRight = new THREE.Mesh(bangRightGeo, hairMat);
+  bangRight.position.set(0.11, 0.145, 0.168);
+  bangRight.rotation.z = Math.PI / 2 + 0.22;
+  bangRight.rotation.y = 0.32;
+  hairGroup.add(bangRight);
 
   // Mechones puntiagudos que salen a la derecha bajo el gorro (rasgo icónico de la plantilla)
-  const spike1Geo = new THREE.ConeGeometry(0.045, 0.135, 16);
+  const spike1Geo = new THREE.ConeGeometry(0.045, 0.145, 16);
   spike1Geo.scale(1, 1, 0.55);
   const spike1 = new THREE.Mesh(spike1Geo, hairMat);
-  spike1.position.set(0.24, 0.14, 0.07);
-  spike1.rotation.z = -1.25;
-  spike1.rotation.y = -0.25;
+  spike1.position.set(0.245, 0.142, 0.06);
+  spike1.rotation.z = -1.22;
+  spike1.rotation.y = -0.22;
   hairGroup.add(spike1);
 
   const spike2 = new THREE.Mesh(spike1Geo, hairMat);
-  spike2.scale.set(0.82, 0.82, 0.5);
-  spike2.position.set(0.22, 0.10, 0.10);
-  spike2.rotation.z = -1.4;
+  spike2.scale.set(0.84, 0.84, 0.5);
+  spike2.position.set(0.225, 0.102, 0.09);
+  spike2.rotation.z = -1.38;
   hairGroup.add(spike2);
 
-  // Patillas cortas junto a las orejas (sin invadir las mejillas)
-  const sideburnGeo = new THREE.CapsuleGeometry(0.018, 0.065, 10, 12);
+  // Patillas finas junto a las orejas (bien a los lados x = ±0.248)
+  const sideburnGeo = new THREE.CapsuleGeometry(0.018, 0.07, 10, 12);
   const sideburnL = new THREE.Mesh(sideburnGeo, hairMat);
-  sideburnL.position.set(-0.242, 0.055, 0.06);
-  sideburnL.rotation.z = 0.12;
+  sideburnL.position.set(-0.248, 0.045, 0.035);
+  sideburnL.rotation.z = 0.1;
   const sideburnR = sideburnL.clone();
-  sideburnR.position.x = 0.242;
-  sideburnR.rotation.z = -0.12;
+  sideburnR.position.x = 0.248;
+  sideburnR.rotation.z = -0.1;
   hairGroup.add(sideburnL, sideburnR);
 
   // ==========================================
@@ -832,49 +843,58 @@ function buildChibiPablitoChef() {
   }
 
   // ==========================================
-  // 5) BRAZOS ARTICULADOS VISIBLES CON MANGAS ARREMANGADAS Y MANOS NATURALES
+  // 5) BRAZOS ESCULPIDOS VISIBLES CON CODOS HACIA AFUERA Y MANGAS ARREMANGADAS
+  // (Geometría posicionada directamente hacia afuera para que SIEMPRE se vean completos)
   // ==========================================
   function createChefArm(sign) {
     const shoulder = new THREE.Group();
-    // Hombros más separados del torso para que los brazos se vean completos y definidos
-    shoulder.position.set(sign * 0.188, 0.275, 0.015);
+    // Hombros bien afuera del borde de la chaquetilla (x = ±0.195)
+    shoulder.position.set(sign * 0.195, 0.275, 0.02);
 
-    const shoulderBall = new THREE.Mesh(new THREE.SphereGeometry(0.056, 20, 20), coatMat);
+    const shoulderBall = new THREE.Mesh(new THREE.SphereGeometry(0.054, 20, 20), coatMat);
     shoulder.add(shoulderBall);
 
-    const upperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.047, 0.145, 20), coatMat);
-    upperArm.position.y = -0.072;
+    // El brazo superior sale en diagonal hacia afuera (sign * 0.055) hasta el codo (sign * 0.095)
+    const upperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.050, 0.046, 0.145, 20), coatMat);
+    upperArm.position.set(sign * 0.048, -0.058, 0.01);
+    upperArm.rotation.z = sign * 0.65;
     shoulder.add(upperArm);
 
+    // Articulación del codo bien separada del cuerpo (x = sign * 0.095)
     const elbow = new THREE.Group();
-    elbow.position.y = -0.145;
+    elbow.position.set(sign * 0.095, -0.115, 0.02);
     shoulder.add(elbow);
 
-    const elbowJoint = new THREE.Mesh(new THREE.SphereGeometry(0.046, 18, 18), coatMat);
+    const elbowJoint = new THREE.Mesh(new THREE.SphereGeometry(0.047, 18, 18), coatMat);
     elbow.add(elbowJoint);
 
-    const forearm = new THREE.Mesh(new THREE.CylinderGeometry(0.046, 0.043, 0.125, 20), coatMat);
-    forearm.position.y = -0.062;
+    // El antebrazo regresa desde el codo hacia la cintura como en la plantilla
+    const forearm = new THREE.Mesh(new THREE.CylinderGeometry(0.046, 0.042, 0.125, 20), coatMat);
+    forearm.position.set(-sign * 0.035, -0.052, 0.025);
+    forearm.rotation.z = -sign * 0.58;
+    forearm.rotation.x = -0.35;
     elbow.add(forearm);
 
-    // Puño blanco doblado (arremangado con borde azulado suave como en la plantilla)
-    const rolledCuff = new THREE.Mesh(new THREE.TorusGeometry(0.046, 0.015, 14, 22), coatShadeMat);
-    rolledCuff.rotation.x = Math.PI / 2;
-    rolledCuff.position.y = -0.118;
+    // Puño blanco doblado arremangado (con tono celeste suave como en el dibujo)
+    const rolledCuff = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.015, 14, 22), coatShadeMat);
+    rolledCuff.position.set(-sign * 0.062, -0.092, 0.045);
+    rolledCuff.rotation.x = Math.PI / 2 - 0.35;
+    rolledCuff.rotation.y = -sign * 0.55;
     elbow.add(rolledCuff);
 
+    // Mano apoyada o lista para animarse
     const hand = new THREE.Group();
-    hand.position.y = -0.15;
+    hand.position.set(-sign * 0.078, -0.118, 0.06);
     elbow.add(hand);
 
-    const palmGeo = new THREE.SphereGeometry(0.045, 20, 20);
-    palmGeo.scale(1.05, 1.08, 0.85);
+    const palmGeo = new THREE.SphereGeometry(0.044, 20, 20);
+    palmGeo.scale(1.05, 1.05, 0.88);
     const palm = new THREE.Mesh(palmGeo, skinMat);
     hand.add(palm);
 
     const thumb = new THREE.Mesh(new THREE.CapsuleGeometry(0.013, 0.024, 8, 8), skinMat);
-    thumb.position.set(-sign * 0.036, 0.006, 0.02);
-    thumb.rotation.z = sign * 0.6;
+    thumb.position.set(-sign * 0.032, 0.008, 0.022);
+    thumb.rotation.z = sign * 0.55;
     hand.add(thumb);
 
     return { shoulder, elbow, hand };
@@ -1022,6 +1042,117 @@ function buildChibiPablitoChef() {
 
   rig.root.add(rig.grillStation);
 
+  // ==========================================
+  // 8) ESTACIÓN DE PIZZA ARTESANAL (MESA DE AMASADO + HORNO DE LEÑA + PALA)
+  // ==========================================
+  rig.pizzaStation = new THREE.Group();
+  rig.pizzaStation.position.set(0, 0, 0.44);
+  rig.pizzaStation.visible = false;
+  rig.pizzaStation.scale.set(0.01, 0.01, 0.01);
+
+  const marbleMat = new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: 0.25, metalness: 0.05 });
+  const brickMat = new THREE.MeshStandardMaterial({ color: 0x9e3b24, roughness: 0.75 });
+  const doughMat = new THREE.MeshStandardMaterial({ color: 0xf7dfb5, roughness: 0.55 });
+  const sauceMat = new THREE.MeshStandardMaterial({ color: 0xc92a1d, roughness: 0.45 });
+  const pepperoniMat = new THREE.MeshStandardMaterial({ color: 0xa81c14, roughness: 0.4 });
+  const woodPeelMat = new THREE.MeshStandardMaterial({ color: 0xc88a4b, roughness: 0.55 });
+  const basilMat = new THREE.MeshStandardMaterial({ color: 0x2e8b3c, roughness: 0.5 });
+
+  // Base de madera/hierro de la estación pizzera
+  const pizzaBase = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.32, 0.30), castIronMat);
+  pizzaBase.position.y = 0.16;
+  rig.pizzaStation.add(pizzaBase);
+
+  // Mesón de mármol enharinado para amasar (izquierda/centro)
+  const marbleTop = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.03, 0.34), marbleMat);
+  marbleTop.position.y = 0.335;
+  rig.pizzaStation.add(marbleTop);
+
+  // Domo de Horno de Leña de Ladrillo (lado derecho de la estación)
+  const ovenGroup = new THREE.Group();
+  ovenGroup.position.set(0.12, 0.35, -0.02);
+  rig.pizzaStation.add(ovenGroup);
+
+  const ovenDome = new THREE.Mesh(
+    new THREE.SphereGeometry(0.17, 24, 18, 0, Math.PI * 2, 0, Math.PI * 0.5),
+    brickMat
+  );
+  ovenGroup.add(ovenDome);
+
+  const ovenChimney = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.032, 0.12, 16), castIronMat);
+  ovenChimney.position.set(0.04, 0.19, -0.03);
+  ovenGroup.add(ovenChimney);
+
+  const ovenMouth = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.10, 0.15), pupilBlackMat);
+  ovenMouth.position.set(0, 0.05, 0.11);
+  ovenGroup.add(ovenMouth);
+
+  const ovenFireGlow = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.14, 0.12),
+    new THREE.MeshBasicMaterial({ color: 0xff5500 })
+  );
+  ovenFireGlow.rotation.x = -Math.PI / 2;
+  ovenFireGlow.position.set(0, 0.008, 0.06);
+  ovenGroup.add(ovenFireGlow);
+
+  rig.ovenLight = new THREE.PointLight(0xff6a00, 0, 1.8);
+  rig.ovenLight.position.set(0.12, 0.44, 0.14);
+  rig.pizzaStation.add(rig.ovenLight);
+
+  // Masa de pizza en zona de amasado (lado izquierdo del mesón)
+  rig.pizzaDough = new THREE.Group();
+  rig.pizzaDough.position.set(-0.13, 0.362, 0.03);
+  rig.pizzaStation.add(rig.pizzaDough);
+
+  const doughDisk = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.095, 0.018, 24), doughMat);
+  rig.pizzaDough.add(doughDisk);
+
+  const sauceDisk = new THREE.Mesh(new THREE.CylinderGeometry(0.078, 0.078, 0.02, 22), sauceMat);
+  sauceDisk.position.y = 0.002;
+  rig.pizzaDough.add(sauceDisk);
+
+  // Pala de madera con Pizza Pepperoni horneada entrando/saliendo del horno
+  rig.pizzaPeel = new THREE.Group();
+  rig.pizzaPeel.position.set(0.12, 0.368, 0.12);
+  rig.pizzaStation.add(rig.pizzaPeel);
+
+  const peelBoard = new THREE.Mesh(new THREE.CylinderGeometry(0.105, 0.105, 0.006, 22), woodPeelMat);
+  rig.pizzaPeel.add(peelBoard);
+
+  const peelHandle = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.18, 12), woodPeelMat);
+  peelHandle.rotation.x = Math.PI / 2;
+  peelHandle.position.z = -0.16;
+  rig.pizzaPeel.add(peelHandle);
+
+  rig.pizzaBaked = new THREE.Group();
+  rig.pizzaBaked.position.y = 0.01;
+  rig.pizzaPeel.add(rig.pizzaBaked);
+
+  const crustRing = new THREE.Mesh(new THREE.TorusGeometry(0.088, 0.016, 12, 24), doughMat);
+  crustRing.rotation.x = Math.PI / 2;
+  crustRing.position.y = 0.008;
+  rig.pizzaBaked.add(crustRing);
+
+  const meltedCheese = new THREE.Mesh(new THREE.CylinderGeometry(0.084, 0.084, 0.012, 24), goldMat);
+  meltedCheese.position.y = 0.005;
+  rig.pizzaBaked.add(meltedCheese);
+
+  // Rodajas de pepperoni y hojitas de albahaca
+  const pepAngles = [0, 1.05, 2.1, 3.15, 4.2, 5.25];
+  pepAngles.forEach((ang, idx) => {
+    const r = idx % 2 === 0 ? 0.048 : 0.032;
+    const pep = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.006, 14), pepperoniMat);
+    pep.position.set(Math.cos(ang) * r, 0.012, Math.sin(ang) * r);
+    rig.pizzaBaked.add(pep);
+  });
+
+  const basilLeaf = new THREE.Mesh(new THREE.SphereGeometry(0.014, 10, 10), basilMat);
+  basilLeaf.scale.set(1.4, 0.3, 0.8);
+  basilLeaf.position.set(0, 0.014, 0);
+  rig.pizzaBaked.add(basilLeaf);
+
+  rig.root.add(rig.pizzaStation);
+
   rig.root.traverse((obj) => {
     if (obj.isMesh) {
       obj.castShadow = true;
@@ -1057,13 +1188,19 @@ function triggerChefAction(actionName) {
   if (actionName === 'Cook') {
     actionTimer = 3.5;
     rig.grillStation.visible = true;
+    if (rig.pizzaStation) rig.pizzaStation.visible = false;
     updatePablitoBannerText('🔥 ¡Smash Burger P&M!');
+  } else if (actionName === 'Pizza') {
+    actionTimer = 4.5;
+    if (rig.pizzaStation) rig.pizzaStation.visible = true;
+    rig.grillStation.visible = false;
+    updatePablitoBannerText('🍕 ¡Amasando y Horneando Pizza!');
   } else if (actionName === 'Wave') {
     actionTimer = 2.4;
     updatePablitoBannerText('👋 ¡Hola! Soy Pablito');
   } else if (actionName === 'Dance') {
-    actionTimer = 3.2;
-    updatePablitoBannerText('💃 ¡Pablito con sabor!');
+    actionTimer = 3.6;
+    updatePablitoBannerText('6️⃣7️⃣ ¡Six Seven Pablito!');
   } else if (actionName === 'Jump') {
     actionTimer = 1.15;
     updatePablitoBannerText('🎉 ¡Arriba Pablo & María!');
@@ -1102,6 +1239,7 @@ function updateNaturalChefAnimations(delta) {
   }
 
   const isCooking = currentAction === 'Cook';
+  const isPizza = currentAction === 'Pizza';
   rig.spatula.visible = isCooking;
   rig.trayBurger.visible = false;
 
@@ -1112,6 +1250,39 @@ function updateNaturalChefAnimations(delta) {
 
   if (rig.emberLight) {
     rig.emberLight.intensity = isCooking ? 2.4 + Math.sin(animClock * 18) * 0.7 : 0;
+  }
+
+  // Animación de la Estación de Pizza Artesanal (Amasado + Lanzamiento de Masa + Horno de Leña)
+  if (rig.pizzaStation) {
+    const targetPizzaScale = isPizza ? 1 : 0.001;
+    const ps = THREE.MathUtils.damp(rig.pizzaStation.scale.x, targetPizzaScale, 12, delta);
+    rig.pizzaStation.scale.set(ps, ps, ps);
+    if (ps < 0.02 && !isPizza) rig.pizzaStation.visible = false;
+
+    if (rig.ovenLight) {
+      rig.ovenLight.intensity = isPizza ? 2.8 + Math.sin(animClock * 20) * 0.8 : 0;
+    }
+
+    if (isPizza) {
+      const elapsedPizza = 4.5 - Math.max(0, actionTimer);
+      if (elapsedPizza < 2.2) {
+        // Fase 1 (0 a 2.2s): Amasando y estirando la masa sobre el mármol + giro en el aire
+        const kneadPulse = Math.sin(animClock * 14);
+        const tossArc = Math.max(0, Math.sin((elapsedPizza / 2.2) * Math.PI));
+        const stretch = 1 + kneadPulse * 0.14 + tossArc * 0.22;
+        rig.pizzaDough.scale.set(stretch, 1 - kneadPulse * 0.12, stretch);
+        rig.pizzaDough.position.y = 0.362 + (elapsedPizza > 1.0 ? Math.abs(Math.sin(animClock * 5.5)) * 0.24 : 0);
+        rig.pizzaDough.rotation.y = animClock * 8;
+        rig.pizzaPeel.position.z = 0.02;
+      } else {
+        // Fase 2 (2.2 a 4.5s): Metiendo y sacando la pizza horneada con la pala en el horno de leña
+        rig.pizzaDough.scale.set(1, 1, 1);
+        rig.pizzaDough.position.y = 0.362;
+        const bakeCycle = Math.sin((elapsedPizza - 2.2) * 4.2);
+        rig.pizzaPeel.position.z = 0.08 + bakeCycle * 0.065;
+        rig.pizzaBaked.rotation.y = animClock * 1.8;
+      }
+    }
   }
 
   if (isCooking) {
@@ -1181,76 +1352,106 @@ function updateNaturalChefAnimations(delta) {
     shinRRot = [kneeBendR, 0, 0];
     footRRot = [-swingR * 0.35, 0, 0];
 
-    // Brazos: balanceo natural opuesto a las piernas (nunca giran hacia atrás de forma antinatural)
-    // Codos siempre ligeramente flexionados hacia adelante (-0.35 rad) y separados del cuerpo
-    const armSwingL = -Math.sin(walkCycle) * (isRun ? 0.45 : 0.28);
-    const armSwingR = Math.sin(walkCycle) * (isRun ? 0.45 : 0.28);
+    // Brazos: balanceo natural opuesto a las piernas
+    const armSwingL = -Math.sin(walkCycle) * (isRun ? 0.48 : 0.32);
+    const armSwingR = Math.sin(walkCycle) * (isRun ? 0.48 : 0.32);
 
-    armLRot = [armSwingL - 0.08, 0, -0.28];
-    forearmLRot = [isRun ? -0.65 : -0.35, 0, 0.12];
+    armLRot = [armSwingL - 0.10, 0, 0];
+    forearmLRot = [isRun ? -0.45 : -0.20, 0, 0];
 
-    armRRot = [armSwingR - 0.08, 0, 0.28];
-    forearmRRot = [isRun ? -0.65 : -0.35, 0, -0.12];
+    armRRot = [armSwingR - 0.10, 0, 0];
+    forearmRRot = [isRun ? -0.45 : -0.20, 0, 0];
 
   } else if (currentAction === 'Wave') {
     // 👋 SALUDAR NATURAL:
-    // Mano derecha se levanta AL FRENTE y ARRIBA (nunca hacia atrás) y saluda de lado a lado.
-    // Mano izquierda en la cintura con el codo hacia afuera (como en la plantilla).
+    // Mano derecha se levanta AL FRENTE y ARRIBA saludando de lado a lado; mano izquierda en la cintura.
     const waveOsc = Math.sin(animClock * 11);
     pelvisY = 0.32 + Math.sin(animClock * 3) * 0.006;
     torsoRot = [0, -0.08, 0.03];
     headRot = [0.02, 0.08, -0.06];
 
-    // Brazo izquierdo en jarra (codo hacia afuera -Z, antebrazo hacia la cintura +Z)
-    armLRot = [-0.12, 0, -0.68];
-    forearmLRot = [-0.35, 0, 1.05];
+    // Brazo izquierdo en jarra (su geometría ya está en jarra por defecto)
+    armLRot = [0, 0, 0];
+    forearmLRot = [0, 0, 0];
 
-    // Brazo derecho levantado hacia adelante y hacia afuera (+Z), antebrazo arriba saludando
-    armRRot = [-0.65, 0.15, 0.85];
-    forearmRRot = [-1.10, 0, 0.55 + waveOsc * 0.32];
+    // Brazo derecho levantado hacia adelante y arriba saludando
+    armRRot = [-0.95, 0, 0.35];
+    forearmRRot = [-0.75, 0, waveOsc * 0.38];
 
     legLRot = [0, 0, -0.04];
     legRRot = [0, 0, 0.04];
 
   } else if (currentAction === 'Cook') {
     // 🔥 COCINAR EN LA PARRILLA SMASH:
-    // Ambos brazos al frente sobre la plancha; la mano derecha voltea la burger con la espátula
     const flipCycle = animClock * 8.5;
     pelvisY = 0.315 + Math.abs(Math.sin(flipCycle)) * 0.012;
     torsoRot = [0.12, Math.sin(flipCycle * 0.5) * 0.08, 0];
     headRot = [0.14, Math.sin(flipCycle * 0.5) * 0.08, 0];
 
-    // Brazo izquierdo al frente sazonando
-    armLRot = [-0.65 + Math.sin(flipCycle) * 0.12, -0.15, -0.32];
-    forearmLRot = [-0.68, 0, 0.25];
+    armLRot = [-0.65 + Math.sin(flipCycle) * 0.15, 0, 0];
+    forearmLRot = [-0.45, 0, 0];
 
-    // Brazo derecho al frente manejando la espátula sobre la parrilla
-    armRRot = [-0.75 - Math.abs(Math.sin(flipCycle)) * 0.25, 0.12, 0.32];
-    forearmRRot = [-0.72 + Math.cos(flipCycle) * 0.28, 0, -0.25];
+    armRRot = [-0.78 - Math.abs(Math.sin(flipCycle)) * 0.28, 0, 0];
+    forearmRRot = [-0.52 + Math.cos(flipCycle) * 0.28, 0, 0];
 
     legLRot = [0, 0, -0.05];
     legRRot = [0, 0, 0.05];
 
+  } else if (currentAction === 'Pizza') {
+    // 🍕 AMASANDO Y HORNEANDO PIZZA EN HORNO DE LEÑA:
+    const elapsedPizza = 4.5 - Math.max(0, actionTimer);
+    if (elapsedPizza < 2.2) {
+      // Fase 1: Pablito amasa vigorosamente con ambas manos sobre el mármol y lanza la masa
+      const knead = animClock * 14;
+      pelvisY = 0.312 + Math.abs(Math.sin(knead)) * 0.016;
+      torsoRot = [0.18 + Math.sin(knead) * 0.05, -0.18, 0];
+      headRot = [0.16, -0.15, Math.sin(knead * 0.5) * 0.05];
+
+      armLRot = [-0.78 + Math.sin(knead) * 0.25, 0, -0.15];
+      forearmLRot = [-0.45 + Math.cos(knead) * 0.25, 0, 0];
+
+      armRRot = [-0.78 - Math.sin(knead) * 0.25, 0, 0.15];
+      forearmRRot = [-0.45 - Math.cos(knead) * 0.25, 0, 0];
+    } else {
+      // Fase 2: Pablito maneja la pala pizzera metiendo y sacando la pizza del horno de leña
+      const peelMove = (elapsedPizza - 2.2) * 4.2;
+      pelvisY = 0.318 + Math.abs(Math.sin(peelMove)) * 0.01;
+      torsoRot = [0.12, 0.16 + Math.sin(peelMove) * 0.08, 0];
+      headRot = [0.12, 0.15, 0];
+
+      armLRot = [-0.72 + Math.sin(peelMove) * 0.18, 0, -0.10];
+      forearmLRot = [-0.50, 0, 0];
+
+      armRRot = [-0.82 + Math.sin(peelMove) * 0.22, 0, 0.12];
+      forearmRRot = [-0.55, 0, 0];
+    }
+    legLRot = [0, 0, -0.05];
+    legRRot = [0, 0, 0.05];
+
   } else if (currentAction === 'Dance') {
-    // 💃 BAILE DIVERTIDO Y NATURAL:
-    const beat = animClock * 7.5;
-    pelvisY = 0.305 + Math.abs(Math.sin(beat * 2)) * 0.032;
-    pelvisRot = [0, Math.sin(beat) * 0.18, Math.sin(beat) * 0.08];
-    torsoRot = [0.04, -Math.sin(beat) * 0.15, -Math.sin(beat) * 0.06];
-    headRot = [Math.abs(Math.sin(beat * 2)) * 0.06, Math.sin(beat) * 0.14, Math.sin(beat) * 0.08];
+    // 6️⃣7️⃣ TENDENCIA VIRAL "SIX SEVEN" (6-7):
+    // Manos al frente con palmas arriba subiendo y bajando alternadamente como una balanza ("Six... Seven...")
+    // acompañado del balanceo lateral de cabeza, hombros y rodillas del trend viral.
+    const sixSevenSpeed = animClock * 6.8;
+    const seeSaw = Math.sin(sixSevenSpeed);
 
-    // Brazos abiertos hacia afuera y adelante llevando el ritmo
-    armLRot = [-0.55 + Math.sin(beat) * 0.35, 0, -0.55 - Math.cos(beat) * 0.18];
-    forearmLRot = [-0.85, 0, 0.25];
+    pelvisY = 0.312 + Math.abs(Math.sin(sixSevenSpeed * 2)) * 0.018;
+    pelvisRot = [0, seeSaw * 0.10, -seeSaw * 0.06];
+    torsoRot = [0.05, -seeSaw * 0.12, seeSaw * 0.11];
+    headRot = [0.04, seeSaw * 0.16, -seeSaw * 0.15];
 
-    armRRot = [-0.55 - Math.sin(beat) * 0.35, 0, 0.55 - Math.cos(beat) * 0.18];
-    forearmRRot = [-0.85, 0, -0.25];
+    // Brazos extendidos hacia adelante a media altura alternando arriba/abajo (gesto "6-7" de balanza)
+    armLRot = [-0.72 + seeSaw * 0.42, 0, -0.15];
+    forearmLRot = [-0.55 + seeSaw * 0.28, 0, 0];
 
-    legLRot = [-Math.max(0, Math.sin(beat)) * 0.32, 0, -0.05];
-    shinLRot = [Math.max(0, Math.sin(beat)) * 0.55, 0, 0];
+    armRRot = [-0.72 - seeSaw * 0.42, 0, 0.15];
+    forearmRRot = [-0.55 - seeSaw * 0.28, 0, 0];
 
-    legRRot = [-Math.max(0, -Math.sin(beat)) * 0.32, 0, 0.05];
-    shinRRot = [Math.max(0, -Math.sin(beat)) * 0.55, 0, 0];
+    legLRot = [-Math.max(0, seeSaw) * 0.22, 0, -0.05];
+    shinLRot = [Math.max(0, seeSaw) * 0.38, 0, 0];
+
+    legRRot = [-Math.max(0, -seeSaw) * 0.22, 0, 0.05];
+    shinRRot = [Math.max(0, -seeSaw) * 0.38, 0, 0];
 
   } else if (currentAction === 'Jump') {
     // 🦘 SALTO DE ALEGRÍA:
@@ -1260,12 +1461,11 @@ function updateNaturalChefAnimations(delta) {
     torsoRot = [-0.06 * jumpArc, 0, 0];
     headRot = [-0.08 * jumpArc, 0, 0];
 
-    // Brazos abiertos hacia afuera y arriba celebrando
-    armLRot = [-1.15 * jumpArc, 0, -0.65 * jumpArc - 0.25];
-    forearmLRot = [-0.45, 0, 0];
+    armLRot = [-1.25 * jumpArc, 0, -0.35 * jumpArc];
+    forearmLRot = [-0.35, 0, 0];
 
-    armRRot = [-1.15 * jumpArc, 0, 0.65 * jumpArc + 0.25];
-    forearmRRot = [-0.45, 0, 0];
+    armRRot = [-1.25 * jumpArc, 0, 0.35 * jumpArc];
+    forearmRRot = [-0.35, 0, 0];
 
     legLRot = [-0.25 * jumpArc, 0, -0.06];
     shinLRot = [0.55 * jumpArc, 0, 0];
@@ -1274,7 +1474,7 @@ function updateNaturalChefAnimations(delta) {
 
   } else {
     // 👨‍🍳 POSE IDLE (REPOSO):
-    // Pose con manos en la cintura y codos BIEN ABIERTOS hacia afuera como la plantilla de Pablito
+    // Los brazos ya están esculpidos en pose de jarra con los codos abiertos hacia afuera
     const breath = Math.sin(animClock * 2.4);
     const lookCycle = Math.sin(animClock * 1.1);
 
@@ -1282,13 +1482,11 @@ function updateNaturalChefAnimations(delta) {
     torsoRot = [breath * 0.015, lookCycle * 0.04, 0];
     headRot = [breath * 0.02, lookCycle * 0.09, Math.sin(animClock * 0.8) * 0.03];
 
-    // Brazos en jarra: hombro abre el codo hacia afuera (-Z en izq, +Z en der)
-    // y el antebrazo dobla hacia adentro (+Z en izq, -Z en der) apoyando las manos en la cintura
-    armLRot = [-0.14, 0, -0.68 - breath * 0.03];
-    forearmLRot = [-0.35, 0, 1.08];
+    armLRot = [breath * 0.02, 0, -breath * 0.02];
+    forearmLRot = [0, 0, 0];
 
-    armRRot = [-0.14, 0, 0.68 + breath * 0.03];
-    forearmRRot = [-0.35, 0, -1.08];
+    armRRot = [breath * 0.02, 0, breath * 0.02];
+    forearmRRot = [0, 0, 0];
 
     legLRot = [0, 0, -0.035];
     shinLRot = [0.03, 0, 0];
@@ -1650,11 +1848,13 @@ function setupUIEvents() {
 
   const btnSpeed = document.getElementById('btn-speed');
   const speedLabel = document.getElementById('speed-label');
-  btnSpeed.addEventListener('click', () => {
-    isTurbo = !isTurbo;
-    btnSpeed.classList.toggle('active-mode', isTurbo);
-    speedLabel.textContent = isTurbo ? 'Correr' : 'Caminar';
-  });
+  if (btnSpeed && speedLabel) {
+    btnSpeed.addEventListener('click', () => {
+      isTurbo = !isTurbo;
+      btnSpeed.classList.toggle('active-mode', isTurbo);
+      speedLabel.textContent = isTurbo ? 'Correr' : 'Caminar';
+    });
+  }
 
   sizeSlider.addEventListener('input', (e) => {
     setCharacterScale(e.target.value);
