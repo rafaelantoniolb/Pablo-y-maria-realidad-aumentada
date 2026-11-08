@@ -44,35 +44,35 @@ const characterGroup = new THREE.Group();
 let restaurantTableMeshGroup = null;
 let cardMeshOnTable = null;
 
-// Jerarquía articulada completa del Chef Maestro 3D + Estación de Parrilla Pro
-const chefParts = {
-  root: new THREE.Group(),
-  hips: new THREE.Group(),
-  torso: new THREE.Group(),
-  head: new THREE.Group(),
-  hat: new THREE.Group(),
-  eyelids: [],
-  leftShoulder: new THREE.Group(),
-  leftElbow: new THREE.Group(),
-  rightShoulder: new THREE.Group(),
-  rightElbow: new THREE.Group(),
-  leftHip: new THREE.Group(),
-  leftKnee: new THREE.Group(),
-  rightHip: new THREE.Group(),
-  rightKnee: new THREE.Group(),
-  burgerOnSpatula: new THREE.Group(),
-  grillStation: new THREE.Group(),
-  grillBurger: new THREE.Group(),
-  emberLight: null
+// Articulaciones anatómicas naturales para Pablito el Chef Chibi
+const rig = {
+  root: null,
+  pelvis: null,
+  torso: null,
+  neck: null,
+  head: null,
+  hat: null,
+  eyelidL: null,
+  eyelidR: null,
+  armL: null,
+  forearmL: null,
+  handL: null,
+  armR: null,
+  forearmR: null,
+  handR: null,
+  legL: null,
+  shinL: null,
+  footL: null,
+  legR: null,
+  shinR: null,
+  footR: null,
+  spatula: null,
+  trayBurger: null,
+  grillStation: null,
+  grillBurger: null,
+  emberLight: null,
+  grillParticles: []
 };
-
-// Sistema de partículas 3D para el Show de Parrilla (Fuego, Chispas y Humo Gourmet)
-const grillParticles = [];
-
-let currentAnimState = 'Idle';
-let animTimer = 0;
-let oneShotTimer = 0;
-let blinkTimer = 0;
 
 // Vector analógico 360° del Joystick (-1 a +1) + Velocidad con inercia suave
 const joyVector = { x: 0, y: 0 };
@@ -94,12 +94,19 @@ const arTiltPresets = [
 ];
 let tiltIndex = 0;
 
-let currentScale = 0.18;
+let currentScale = 0.34;
 const TABLE_LIMIT = 0.85;
 
 let minigameActive = false;
 let collectibleMesh = null;
 let score = 0;
+
+let currentAction = 'Idle';
+let actionTimer = 0;
+let animClock = 0;
+let walkCycle = 0;
+let blinkTimer = 0;
+let pablitoBanner = null;
 
 function getDepthPerspectiveMultiplier(zPos) {
   const normalizedDepth = THREE.MathUtils.clamp(zPos / TABLE_LIMIT, -1, 1);
@@ -117,11 +124,10 @@ function applyCharacterPerspectiveScale() {
 // ==========================================
 async function startApp() {
   buildTableSurfaceElements();
-  buildProChefCharacter();
+  buildChibiPablitoChef();
   await initMindARCameraMode();
 }
 
-// Configuración PBR Cinematográfica (RoomEnvironment + ACESFilmicToneMapping)
 function enhanceRendererAndLighting(targetRenderer, targetScene) {
   targetRenderer.shadowMap.enabled = true;
   targetRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -137,19 +143,18 @@ function enhanceRendererAndLighting(targetRenderer, targetScene) {
     console.warn('Environment map fallback:', e);
   }
 
-  const hemiLight = new THREE.HemisphereLight(0xfff8f0, 0x3b2219, 1.4);
+  const hemiLight = new THREE.HemisphereLight(0xfff9f2, 0x452c1e, 1.65);
   targetScene.add(hemiLight);
 
-  const keyLight = new THREE.DirectionalLight(0xfff2db, 2.4);
-  keyLight.position.set(2.2, 5.5, 3.2);
+  const keyLight = new THREE.DirectionalLight(0xfff4e4, 2.4);
+  keyLight.position.set(2.2, 5.2, 3.5);
   keyLight.castShadow = true;
   keyLight.shadow.mapSize.width = 1024;
   keyLight.shadow.mapSize.height = 1024;
-  keyLight.shadow.bias = -0.0005;
   targetScene.add(keyLight);
 
-  const rimLight = new THREE.DirectionalLight(0xffb800, 1.1);
-  rimLight.position.set(-2.5, 3.0, -2.0);
+  const rimLight = new THREE.DirectionalLight(0xffb800, 1.0);
+  rimLight.position.set(-2.5, 3.0, -2.2);
   targetScene.add(rimLight);
 }
 
@@ -246,7 +251,7 @@ async function initMindARCameraMode() {
       }
 
       updateMovementOnTable(delta);
-      updateChefAnimation(delta);
+      updateNaturalChefAnimations(delta);
       renderer.render(scene, camera);
     });
   } catch (err) {
@@ -268,11 +273,11 @@ function relockToMarker() {
   if (isMarkerVisible) {
     hasBeenFoundOnce = true;
     tableSurfaceGroup.visible = true;
-    statusText.textContent = '🔒 ¡Chef Re-ubicado y Fijado!';
+    statusText.textContent = '🔒 ¡Pablito Re-ubicado y Fijado!';
   } else {
     tableSurfaceGroup.visible = false;
     scanGuide.classList.remove('hidden');
-    statusText.textContent = '📷 Apunta de nuevo a la imagen para fijar al Chef';
+    statusText.textContent = '📷 Apunta de nuevo a la imagen para fijar a Pablito';
   }
 }
 
@@ -321,7 +326,7 @@ function initInteractive6DoFTableSimulator(customMessage) {
 
   btnPinMode.textContent = '📷 Cámara AR';
   btnPinMode.classList.add('active');
-  statusText.textContent = customMessage || '👨‍🍳 Mesa 3D Activa — Usa el Joystick 360° o toca 🔥 Parrilla';
+  statusText.textContent = customMessage || '👨‍🍳 Pablito el Chef en tu Mesa 3D — Usa el Joystick';
 
   triggerChefAction('Wave');
 
@@ -329,7 +334,7 @@ function initInteractive6DoFTableSimulator(customMessage) {
     const delta = Math.min(clock.getDelta(), 0.1);
     if (orbitControls) orbitControls.update();
     updateMovementOnTable(delta);
-    updateChefAnimation(delta);
+    updateNaturalChefAnimations(delta);
     renderer.render(scene, camera);
   });
 }
@@ -372,67 +377,21 @@ function buildTableSurfaceElements() {
 }
 
 function setCharacterScale(newScale) {
-  currentScale = THREE.MathUtils.clamp(parseFloat(newScale), 0.08, 0.55);
+  currentScale = THREE.MathUtils.clamp(parseFloat(newScale), 0.12, 1.15);
   if (sizeSlider) sizeSlider.value = currentScale;
   applyCharacterPerspectiveScale();
 }
 
 // ==========================================
-// 5. TEXTURAS PROCEDURALES Y MODELO PRO DEL CHEF + ESTACIÓN DE PARRILLA
+// 5. CONSTRUIR A "PABLITO EL CHEF" (PLANTILLA CHIBI OFICIAL)
 // ==========================================
-function createHatPleatsTexture() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 128;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, 256, 128);
-  for (let x = 0; x < 256; x += 8) {
-    const grad = ctx.createLinearGradient(x, 0, x + 8, 0);
-    grad.addColorStop(0, '#f2f4f8');
-    grad.addColorStop(0.5, '#ffffff');
-    grad.addColorStop(1, '#e1e5ec');
-    ctx.fillStyle = grad;
-    ctx.fillRect(x, 0, 8, 128);
-  }
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
-function createBadgeTexture() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 256;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#12100e';
-  ctx.beginPath();
-  ctx.arc(128, 128, 120, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.lineWidth = 14;
-  ctx.strokeStyle = '#ffb800';
-  ctx.stroke();
-  ctx.fillStyle = '#ffb800';
-  ctx.font = 'bold 64px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('P&M', 128, 102);
-  ctx.fillStyle = '#fff8f0';
-  ctx.font = 'bold 36px sans-serif';
-  ctx.fillText('PABLITO', 128, 162);
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
 function createFloatingNameBanner(text = '👨‍🍳 Pablito el Chef') {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 128;
   const ctx = canvas.getContext('2d');
 
-  // Fondo redondeado estilo Pablo & María
-  ctx.fillStyle = 'rgba(18, 16, 14, 0.86)';
+  ctx.fillStyle = 'rgba(18, 16, 14, 0.88)';
   ctx.strokeStyle = '#ffb800';
   ctx.lineWidth = 6;
   ctx.beginPath();
@@ -450,12 +409,11 @@ function createFloatingNameBanner(text = '👨‍🍳 Pablito el Chef') {
   tex.colorSpace = THREE.SRGBColorSpace;
   const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
   const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(0.95, 0.24, 1);
-  sprite.position.set(0, 0.56, 0);
+  sprite.scale.set(0.82, 0.205, 1);
+  sprite.position.set(0, 1.62, 0);
   return { sprite, canvas, ctx, tex };
 }
 
-let pablitoBanner = null;
 function updatePablitoBannerText(text) {
   if (!pablitoBanner) return;
   const { ctx, tex } = pablitoBanner;
@@ -482,14 +440,11 @@ function createSmashBurgerMesh(scale = 1) {
   const cheeseMat = new THREE.MeshStandardMaterial({ color: 0xffb800, roughness: 0.2, metalness: 0.1 });
   const baconMat = new THREE.MeshStandardMaterial({ color: 0xa62626, roughness: 0.45 });
   const lettuceMat = new THREE.MeshStandardMaterial({ color: 0x44bd32, roughness: 0.5 });
-  const sesameMat = new THREE.MeshStandardMaterial({ color: 0xfff3d1, roughness: 0.4 });
 
-  // Pan brioche inferior
   const bottomBun = new THREE.Mesh(new THREE.CylinderGeometry(0.145, 0.13, 0.045, 24), bunMat);
   bottomBun.position.y = 0.022;
   burger.add(bottomBun);
 
-  // Primera carne Smash crujiente + Queso Cheddar fundido
   const patty1 = new THREE.Mesh(new THREE.CylinderGeometry(0.155, 0.155, 0.032, 24), meatMat);
   patty1.position.y = 0.055;
   burger.add(patty1);
@@ -499,7 +454,6 @@ function createSmashBurgerMesh(scale = 1) {
   cheese1.rotation.y = Math.PI / 4;
   burger.add(cheese1);
 
-  // Segunda carne Smash + Doble Cheddar + Tocineta
   const patty2 = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.032, 24), meatMat);
   patty2.position.y = 0.095;
   burger.add(patty2);
@@ -518,627 +472,835 @@ function createSmashBurgerMesh(scale = 1) {
   lettuce.position.y = 0.135;
   burger.add(lettuce);
 
-  // Pan brioche superior brillante con semillas de ajonjolí
   const topBun = new THREE.Mesh(new THREE.SphereGeometry(0.148, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.48), bunMat);
   topBun.position.y = 0.135;
   burger.add(topBun);
 
-  for (let i = 0; i < 10; i++) {
-    const a = (i / 10) * Math.PI * 2;
-    const r = i % 2 === 0 ? 0.065 : 0.1;
-    const seed = new THREE.Mesh(new THREE.SphereGeometry(0.01, 8, 8), sesameMat);
-    seed.scale.set(1, 0.5, 1.6);
-    seed.position.set(Math.cos(a) * r, 0.245 - r * 0.35, Math.sin(a) * r);
-    seed.rotation.y = a;
-    burger.add(seed);
-  }
-
   burger.scale.set(scale, scale, scale);
-  burger.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+  burger.traverse((c) => {
+    if (c.isMesh) {
+      c.castShadow = true;
+      c.receiveShadow = true;
+    }
+  });
   return burger;
 }
 
-function buildProChefCharacter() {
-  const pleatTex = createHatPleatsTexture();
-  const badgeTex = createBadgeTexture();
+function buildChibiPablitoChef() {
+  // Materiales idénticos a la plantilla subida (Niño Chef Chibi "Pablito")
+  const skinMat = new THREE.MeshStandardMaterial({ color: 0xffcbb0, roughness: 0.45, metalness: 0.02 });
+  const blushMat = new THREE.MeshStandardMaterial({ color: 0xf49082, roughness: 0.55 });
+  const hairMat = new THREE.MeshStandardMaterial({ color: 0x3b2214, roughness: 0.55, metalness: 0.05 });
+  const coatMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35, metalness: 0.04 });
+  const coatShadeMat = new THREE.MeshStandardMaterial({ color: 0xe6eff7, roughness: 0.4 });
+  const redPipingMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.35, metalness: 0.08 });
+  const shoeRedMat = new THREE.MeshStandardMaterial({ color: 0xd61f1f, roughness: 0.35, metalness: 0.1 });
+  const pantsMat = new THREE.MeshStandardMaterial({ color: 0x36363b, roughness: 0.65 });
+  const eyeWhiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.15 });
+  const irisBrownMat = new THREE.MeshStandardMaterial({ color: 0x4a2612, roughness: 0.15 });
+  const pupilBlackMat = new THREE.MeshStandardMaterial({ color: 0x120a06, roughness: 0.1 });
+  const teethMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 });
+  const steelMat = new THREE.MeshStandardMaterial({ color: 0xdde3ea, metalness: 0.85, roughness: 0.2 });
+  const castIronMat = new THREE.MeshStandardMaterial({ color: 0x1e2022, metalness: 0.65, roughness: 0.4 });
+  const goldMat = new THREE.MeshStandardMaterial({ color: 0xffb800, metalness: 0.65, roughness: 0.25 });
 
-  const whiteCoatMat = new THREE.MeshStandardMaterial({ color: 0xfafafa, roughness: 0.42, metalness: 0.02 });
-  const pleatedHatMat = new THREE.MeshStandardMaterial({ map: pleatTex, roughness: 0.4 });
-  const skinMat = new THREE.MeshStandardMaterial({ color: 0xffc69e, roughness: 0.48, metalness: 0.02 });
-  const blushMat = new THREE.MeshStandardMaterial({ color: 0xff8a7a, roughness: 0.6, transparent: true, opacity: 0.45 });
-  const darkPantsMat = new THREE.MeshStandardMaterial({ color: 0x1b1917, roughness: 0.65 });
-  const apronMat = new THREE.MeshStandardMaterial({ color: 0x141210, roughness: 0.55 });
-  const shoeMat = new THREE.MeshStandardMaterial({ color: 0x0f0e0d, roughness: 0.25, metalness: 0.2 });
-  const redMat = new THREE.MeshStandardMaterial({ color: 0xe63946, roughness: 0.38 });
-  const goldMat = new THREE.MeshStandardMaterial({ color: 0xffb800, metalness: 0.65, roughness: 0.22 });
-  const hairMat = new THREE.MeshStandardMaterial({ color: 0x331b11, roughness: 0.55 });
-  const irisMat = new THREE.MeshStandardMaterial({ color: 0x4a2a12, roughness: 0.2 });
-  const pupilMat = new THREE.MeshBasicMaterial({ color: 0x050505 });
-  const catchlightMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-  const steelMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.88, roughness: 0.15 });
-  const castIronMat = new THREE.MeshStandardMaterial({ color: 0x1e2022, metalness: 0.6, roughness: 0.45 });
+  rig.root = new THREE.Group();
+  pablitoBanner = createFloatingNameBanner('👨‍🍳 Pablito el Chef');
+  rig.root.add(pablitoBanner.sprite);
 
-  // 1) CADERA Y TORSO ARTICULADO
-  chefParts.hips.position.y = 0.42;
-  chefParts.root.add(chefParts.hips);
+  // ==========================================
+  // 1) PELVIS Y CHAQUETILLA CON RIBETE ROJO + 8 BOTONES ROJOS (4x2)
+  // ==========================================
+  rig.pelvis = new THREE.Group();
+  rig.pelvis.position.y = 0.32;
+  rig.root.add(rig.pelvis);
 
-  const pelvis = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.25, 0.16, 24), darkPantsMat);
-  chefParts.hips.add(pelvis);
+  rig.torso = new THREE.Group();
+  rig.pelvis.add(rig.torso);
 
-  chefParts.torso.position.y = 0.06;
-  chefParts.hips.add(chefParts.torso);
+  // Cuerpo de la chaquetilla blanca (ligeramente acampanada abajo como en la plantilla)
+  const jacketGeo = new THREE.CylinderGeometry(0.145, 0.172, 0.32, 32);
+  jacketGeo.scale(1.08, 1, 0.82);
+  const jacketMesh = new THREE.Mesh(jacketGeo, coatMat);
+  jacketMesh.position.y = 0.15;
+  rig.torso.add(jacketMesh);
 
-  // Chaquetilla esculpida de Chef
-  const chest = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.31, 0.62, 28), whiteCoatMat);
-  chest.position.y = 0.31;
-  chefParts.torso.add(chest);
+  // Hombros redondeados suaves
+  const upperChestGeo = new THREE.SphereGeometry(0.156, 28, 20);
+  upperChestGeo.scale(1.08, 0.6, 0.82);
+  const upperChest = new THREE.Mesh(upperChestGeo, coatMat);
+  upperChest.position.y = 0.285;
+  rig.torso.add(upperChest);
 
-  // Hombros redondeados
-  const shoulders = new THREE.Mesh(new THREE.CapsuleGeometry(0.14, 0.38, 12, 20), whiteCoatMat);
-  shoulders.rotation.z = Math.PI / 2;
-  shoulders.position.y = 0.52;
-  chefParts.torso.add(shoulders);
+  // Cuello Mandarin de Chef con borde rojo (idéntico a la plantilla)
+  const collarWhite = new THREE.Mesh(new THREE.CylinderGeometry(0.088, 0.098, 0.055, 28), coatMat);
+  collarWhite.position.y = 0.335;
+  rig.torso.add(collarWhite);
 
-  // Delantal negro gourmet con ribetes dorados y bolsillo
-  const apronSkirt = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.282, 0.325, 0.46, 28, 1, false, -Math.PI * 0.52, Math.PI * 1.04),
-    apronMat
-  );
-  apronSkirt.position.y = 0.18;
-  chefParts.torso.add(apronSkirt);
+  const collarRedTrim = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.008, 12, 28), redPipingMat);
+  collarRedTrim.rotation.x = Math.PI / 2;
+  collarRedTrim.position.y = 0.36;
+  rig.torso.add(collarRedTrim);
 
-  const apronBib = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.26, 0.04), apronMat);
-  apronBib.position.set(0, 0.42, 0.275);
-  chefParts.torso.add(apronBib);
+  // Solapa frontal cruzada con ribete rojo y 2 columnas de 4 botones rojos (8 botones en total)
+  const frontPanelGeo = new THREE.BoxGeometry(0.15, 0.305, 0.022);
+  const frontPanel = new THREE.Mesh(frontPanelGeo, coatMat);
+  frontPanel.position.set(0.006, 0.15, 0.13);
+  rig.torso.add(frontPanel);
 
-  // Medallón P&M en el pecho del delantal
-  const chestBadge = new THREE.Mesh(
-    new THREE.CircleGeometry(0.085, 24),
-    new THREE.MeshBasicMaterial({ map: badgeTex })
-  );
-  chestBadge.position.set(0, 0.43, 0.298);
-  chefParts.torso.add(chestBadge);
+  // Líneas de ribete rojo de la solapa (izquierda, derecha y superior)
+  const pipingLeft = new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.308, 12), redPipingMat);
+  pipingLeft.position.set(-0.068, 0.15, 0.141);
+  rig.torso.add(pipingLeft);
 
-  // Pañuelo rojo de cocina en la cintura
-  const kitchenTowel = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.24, 0.03), redMat);
-  kitchenTowel.position.set(0.26, 0.18, 0.14);
-  kitchenTowel.rotation.z = -0.1;
-  chefParts.torso.add(kitchenTowel);
+  const pipingRight = new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.308, 12), redPipingMat);
+  pipingRight.position.set(0.08, 0.15, 0.141);
+  rig.torso.add(pipingRight);
 
-  // Pañuelo rojo de Chef en el cuello con nudo
-  const neckScarf = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.052, 14, 28), redMat);
-  neckScarf.rotation.x = Math.PI / 2;
-  neckScarf.position.y = 0.62;
-  chefParts.torso.add(neckScarf);
+  const pipingTop = new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.15, 12), redPipingMat);
+  pipingTop.rotation.z = Math.PI / 2;
+  pipingTop.position.set(0.006, 0.302, 0.141);
+  rig.torso.add(pipingTop);
 
-  const scarfKnot = new THREE.Mesh(new THREE.SphereGeometry(0.062, 14, 14), goldMat);
-  scarfKnot.position.set(0, 0.59, 0.22);
-  chefParts.torso.add(scarfKnot);
+  // 8 Botones Rojos (4 filas x 2 columnas) como en la imagen
+  const btnGeo = new THREE.SphereGeometry(0.012, 14, 14);
+  btnGeo.scale(1, 1, 0.6);
+  const buttonYPositions = [0.265, 0.20, 0.135, 0.07];
+  buttonYPositions.forEach((by) => {
+    const btnL = new THREE.Mesh(btnGeo, redPipingMat);
+    btnL.position.set(-0.042, by, 0.143);
+    rig.torso.add(btnL);
 
-  // Botones dorados en doble fila
-  for (let r = 0; r < 3; r++) {
-    [-0.11, 0.11].forEach((xPos) => {
-      const btn = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.015, 14), goldMat);
-      btn.rotation.x = Math.PI / 2;
-      btn.position.set(xPos, 0.5 - r * 0.09, 0.285);
-      chefParts.torso.add(btn);
-    });
-  }
-
-  // 2) CUELLO, CABEZA EXPRESIVA Y GORRO PLISADO
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.12, 18), skinMat);
-  neck.position.y = 0.66;
-  chefParts.torso.add(neck);
-
-  chefParts.head.position.set(0, 0.9, 0);
-  chefParts.torso.add(chefParts.head);
-
-  const cranium = new THREE.Mesh(new THREE.SphereGeometry(0.27, 32, 32), skinMat);
-  cranium.scale.set(1.02, 0.98, 0.98);
-  chefParts.head.add(cranium);
-
-  // Orejas
-  [-0.26, 0.26].forEach((xPos) => {
-    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.06, 14, 14), skinMat);
-    ear.scale.set(0.55, 1.1, 0.8);
-    ear.position.set(xPos, -0.01, 0);
-    chefParts.head.add(ear);
+    const btnR = new THREE.Mesh(btnGeo, redPipingMat);
+    btnR.position.set(0.054, by, 0.143);
+    rig.torso.add(btnR);
   });
 
-  // Mejillas sonrojadas
-  [-0.14, 0.14].forEach((xPos) => {
-    const cheek = new THREE.Mesh(new THREE.SphereGeometry(0.055, 14, 14), blushMat);
-    cheek.scale.set(1.2, 0.7, 0.5);
-    cheek.position.set(xPos, -0.03, 0.23);
-    chefParts.head.add(cheek);
-  });
+  // ==========================================
+  // 2) CUELLO Y CABEZA CHIBI GRANDE Y EXPRESIVA
+  // ==========================================
+  rig.neck = new THREE.Group();
+  rig.neck.position.y = 0.36;
+  rig.torso.add(rig.neck);
 
-  // Ojos multicapa con iris, pupila, reflejo corneal blanco y párpados que parpadean
-  chefParts.eyelids = [];
-  [-0.095, 0.095].forEach((xPos) => {
+  const neckSkin = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.068, 0.06, 20), skinMat);
+  neckSkin.position.y = 0.02;
+  rig.neck.add(neckSkin);
+
+  rig.head = new THREE.Group();
+  rig.head.position.y = 0.245;
+  rig.neck.add(rig.head);
+
+  // Cabeza Chibi (proporción tierna y mejillas redondeadas)
+  const headSphereGeo = new THREE.SphereGeometry(0.245, 36, 32);
+  headSphereGeo.scale(1.08, 0.96, 0.95);
+  const headMesh = new THREE.Mesh(headSphereGeo, skinMat);
+  rig.head.add(headMesh);
+
+  // Orejitas redondeadas a los lados
+  const earGeo = new THREE.SphereGeometry(0.055, 20, 20);
+  earGeo.scale(0.55, 0.95, 0.7);
+  const earL = new THREE.Mesh(earGeo, skinMat);
+  earL.position.set(-0.262, -0.02, 0.01);
+  const earR = earL.clone();
+  earR.position.x = 0.262;
+  rig.head.add(earL, earR);
+
+  const innerEarGeo = new THREE.SphereGeometry(0.032, 14, 14);
+  innerEarGeo.scale(0.5, 0.85, 0.6);
+  const innerEarL = new THREE.Mesh(innerEarGeo, blushMat);
+  innerEarL.position.set(-0.272, -0.02, 0.02);
+  const innerEarR = innerEarL.clone();
+  innerEarR.position.x = 0.272;
+  rig.head.add(innerEarL, innerEarR);
+
+  // Ojos Grandes Chibi Marrones con doble brillo blanco (como la plantilla)
+  function createChibiEye(sign) {
     const eyeGroup = new THREE.Group();
-    eyeGroup.position.set(xPos, 0.045, 0.225);
+    eyeGroup.position.set(sign * 0.098, -0.01, 0.212);
+    eyeGroup.rotation.y = sign * 0.16;
 
-    const sclera = new THREE.Mesh(new THREE.SphereGeometry(0.052, 18, 18), whiteCoatMat);
-    sclera.scale.set(1, 1.1, 0.7);
+    // Esclerótica blanca
+    const scleraGeo = new THREE.SphereGeometry(0.056, 24, 24);
+    scleraGeo.scale(0.95, 1.08, 0.42);
+    const sclera = new THREE.Mesh(scleraGeo, eyeWhiteMat);
     eyeGroup.add(sclera);
 
-    const iris = new THREE.Mesh(new THREE.SphereGeometry(0.033, 16, 16), irisMat);
-    iris.scale.set(1, 1.05, 0.5);
-    iris.position.z = 0.025;
+    // Iris marrón cálido grande
+    const irisGeo = new THREE.SphereGeometry(0.043, 24, 24);
+    irisGeo.scale(0.92, 1.05, 0.42);
+    const iris = new THREE.Mesh(irisGeo, irisBrownMat);
+    iris.position.set(-sign * 0.004, 0, 0.008);
     eyeGroup.add(iris);
 
-    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.02, 14, 14), pupilMat);
-    pupil.scale.set(1, 1.05, 0.4);
-    pupil.position.z = 0.036;
+    // Pupila negra profunda
+    const pupilGeo = new THREE.SphereGeometry(0.028, 20, 20);
+    pupilGeo.scale(0.92, 1.05, 0.42);
+    const pupil = new THREE.Mesh(pupilGeo, pupilBlackMat);
+    pupil.position.set(-sign * 0.004, 0, 0.014);
     eyeGroup.add(pupil);
 
-    // Brillo vivo en los ojos (catchlight)
-    const catchlight = new THREE.Mesh(new THREE.SphereGeometry(0.009, 10, 10), catchlightMat);
-    catchlight.position.set(0.012, 0.014, 0.044);
-    eyeGroup.add(catchlight);
+    // Brillo especular grande arriba-izquierda + brillo pequeño abajo-derecha
+    const shineBig = new THREE.Mesh(new THREE.SphereGeometry(0.013, 12, 12), eyeWhiteMat);
+    shineBig.position.set(-0.014, 0.018, 0.026);
+    eyeGroup.add(shineBig);
+
+    const shineSmall = new THREE.Mesh(new THREE.SphereGeometry(0.0065, 10, 10), eyeWhiteMat);
+    shineSmall.position.set(0.012, -0.014, 0.025);
+    eyeGroup.add(shineSmall);
+
+    // Pestaña superior gruesa oscura (estilo cartoon)
+    const lashGeo = new THREE.TorusGeometry(0.052, 0.0075, 10, 24, Math.PI * 0.85);
+    const lash = new THREE.Mesh(lashGeo, hairMat);
+    lash.rotation.z = Math.PI * 0.08;
+    lash.position.set(0, 0.006, 0.012);
+    eyeGroup.add(lash);
 
     // Párpado para parpadeo natural
-    const eyelid = new THREE.Mesh(
-      new THREE.SphereGeometry(0.055, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.55),
-      skinMat
-    );
-    eyelid.rotation.x = -Math.PI * 0.45;
+    const eyelidGeo = new THREE.SphereGeometry(0.058, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.55);
+    eyelidGeo.scale(0.96, 1.08, 0.46);
+    const eyelid = new THREE.Mesh(eyelidGeo, skinMat);
+    eyelid.rotation.x = -Math.PI * 0.55;
     eyeGroup.add(eyelid);
-    chefParts.eyelids.push(eyelid);
 
-    chefParts.head.add(eyeGroup);
-  });
+    return { eyeGroup, eyelid };
+  }
 
-  // Cejas gruesas expresivas
-  [-0.095, 0.095].forEach((xPos, idx) => {
-    const brow = new THREE.Mesh(new THREE.CapsuleGeometry(0.018, 0.065, 8, 12), hairMat);
-    brow.position.set(xPos, 0.125, 0.24);
-    brow.rotation.z = Math.PI / 2 + (idx === 0 ? 0.14 : -0.14);
-    chefParts.head.add(brow);
-  });
+  const leftEyeObj = createChibiEye(-1);
+  const rightEyeObj = createChibiEye(1);
+  rig.head.add(leftEyeObj.eyeGroup, rightEyeObj.eyeGroup);
+  rig.eyelidL = leftEyeObj.eyelid;
+  rig.eyelidR = rightEyeObj.eyelid;
 
-  // Nariz esculpida
-  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.052, 18, 18), skinMat);
-  nose.scale.set(1.05, 0.9, 1.1);
-  nose.position.set(0, -0.005, 0.27);
-  chefParts.head.add(nose);
+  // Cejas expresivas marrón oscuro arqueadas
+  const browGeo = new THREE.CapsuleGeometry(0.012, 0.068, 10, 14);
+  const browL = new THREE.Mesh(browGeo, hairMat);
+  browL.position.set(-0.098, 0.075, 0.22);
+  browL.rotation.z = Math.PI / 2 + 0.14;
+  browL.rotation.y = -0.15;
 
-  // Bigote Imperial de Chef (esculpido en 4 segmentos curvos)
-  const mustacheGroup = new THREE.Group();
-  mustacheGroup.position.set(0, -0.068, 0.255);
-  [-1, 1].forEach((dir) => {
-    const innerM = new THREE.Mesh(new THREE.CapsuleGeometry(0.032, 0.065, 10, 14), hairMat);
-    innerM.position.set(dir * 0.045, 0, 0.01);
-    innerM.rotation.z = Math.PI / 2 - dir * 0.22;
-    mustacheGroup.add(innerM);
+  const browR = new THREE.Mesh(browGeo, hairMat);
+  browR.position.set(0.098, 0.075, 0.22);
+  browR.rotation.z = Math.PI / 2 - 0.14;
+  browR.rotation.y = 0.15;
+  rig.head.add(browL, browR);
 
-    const tipM = new THREE.Mesh(new THREE.ConeGeometry(0.028, 0.075, 12), hairMat);
-    tipM.position.set(dir * 0.11, 0.008, -0.005);
-    tipM.rotation.z = -dir * 1.15;
-    mustacheGroup.add(tipM);
-  });
-  chefParts.head.add(mustacheGroup);
+  // Nariz pequeñita y redondeada de niño
+  const noseGeo = new THREE.SphereGeometry(0.024, 18, 18);
+  noseGeo.scale(1.25, 0.85, 0.9);
+  const nose = new THREE.Mesh(noseGeo, skinMat);
+  nose.position.set(0, -0.042, 0.238);
+  rig.head.add(nose);
 
-  // Sonrisa alegre bajo el bigote
-  const smile = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.012, 10, 20, Math.PI), redMat);
-  smile.rotation.x = Math.PI;
-  smile.position.set(0, -0.105, 0.242);
-  chefParts.head.add(smile);
+  // Mejillas sonrojadas rosadas ovaladas
+  const cheekGeo = new THREE.SphereGeometry(0.038, 16, 16);
+  cheekGeo.scale(1.35, 0.65, 0.35);
+  const cheekL = new THREE.Mesh(cheekGeo, blushMat);
+  cheekL.position.set(-0.145, -0.058, 0.205);
+  cheekL.rotation.y = -0.35;
+  const cheekR = cheekL.clone();
+  cheekR.position.x = 0.145;
+  cheekR.rotation.y = 0.35;
+  rig.head.add(cheekL, cheekR);
 
-  // Gorro de Chef Toque Blanche con pliegues y medallón P&M
-  chefParts.hat.position.set(0, 0.19, -0.01);
-  chefParts.head.add(chefParts.hat);
+  // Sonrisa grande y alegre con dientes blancos (SIN bigote, como en la plantilla)
+  const smileGroup = new THREE.Group();
+  smileGroup.position.set(0, -0.095, 0.224);
 
-  const hatBase = new THREE.Mesh(new THREE.CylinderGeometry(0.245, 0.235, 0.14, 28), whiteCoatMat);
-  hatBase.position.y = 0.06;
-  chefParts.hat.add(hatBase);
+  const smileTeethGeo = new THREE.CylinderGeometry(0.062, 0.048, 0.032, 24, 1, false, -Math.PI * 0.38, Math.PI * 0.76);
+  smileTeethGeo.scale(1, 1, 0.35);
+  const smileTeeth = new THREE.Mesh(smileTeethGeo, teethMat);
+  smileGroup.add(smileTeeth);
 
-  const hatBandRed = new THREE.Mesh(new THREE.CylinderGeometry(0.248, 0.24, 0.038, 28), redMat);
-  hatBandRed.position.y = 0.015;
-  chefParts.hat.add(hatBandRed);
+  const smileOutlineGeo = new THREE.TorusGeometry(0.056, 0.0045, 10, 24, Math.PI * 0.85);
+  const smileOutline = new THREE.Mesh(smileOutlineGeo, hairMat);
+  smileOutline.rotation.z = Math.PI * 1.075;
+  smileOutline.position.set(0, 0.012, 0.012);
+  smileGroup.add(smileOutline);
+  rig.head.add(smileGroup);
 
-  const hatPleatedColumn = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.24, 0.24, 32), pleatedHatMat);
-  hatPleatedColumn.position.y = 0.22;
-  chefParts.hat.add(hatPleatedColumn);
+  // ==========================================
+  // 3) CABELLO CASTAÑO CON FLEQUILLO PEINADO DE LADO Y PUNTAS LATERALES
+  // ==========================================
+  const hairGroup = new THREE.Group();
+  rig.head.add(hairGroup);
 
-  const hatCrown = new THREE.Mesh(new THREE.SphereGeometry(0.29, 28, 20), pleatedHatMat);
-  hatCrown.position.y = 0.34;
-  hatCrown.scale.set(1.08, 0.72, 1.08);
-  chefParts.hat.add(hatCrown);
+  // Casco capilar trasero y lateral
+  const backHairGeo = new THREE.SphereGeometry(0.254, 32, 24, 0, Math.PI * 2, 0, Math.PI * 0.62);
+  backHairGeo.scale(1.09, 0.98, 0.98);
+  const backHair = new THREE.Mesh(backHairGeo, hairMat);
+  backHair.rotation.x = -0.22;
+  backHair.position.y = 0.02;
+  hairGroup.add(backHair);
 
-  // Etiqueta 3D flotante sobre el gorro de Pablito el Chef
-  pablitoBanner = createFloatingNameBanner('👨‍🍳 Pablito el Chef');
-  chefParts.hat.add(pablitoBanner.sprite);
+  // Flequillo grande peinado hacia la izquierda (como en la plantilla)
+  const bangMainGeo = new THREE.CapsuleGeometry(0.055, 0.22, 14, 20);
+  bangMainGeo.scale(1, 1, 0.55);
+  const bangMain = new THREE.Mesh(bangMainGeo, hairMat);
+  bangMain.position.set(-0.02, 0.145, 0.195);
+  bangMain.rotation.z = Math.PI / 2 - 0.18;
+  bangMain.rotation.y = -0.12;
+  hairGroup.add(bangMain);
 
-  // 3) BRAZOS CON ARTICULACIÓN DE HOMBRO + CODO + MANO CON PULGAR
-  // Brazo Izquierdo (Lleva el salero/sazonador de oro en el show de cocina)
-  chefParts.leftShoulder.position.set(-0.33, 0.52, 0);
-  chefParts.torso.add(chefParts.leftShoulder);
+  const bangSideGeo = new THREE.CapsuleGeometry(0.042, 0.14, 12, 16);
+  bangSideGeo.scale(1, 1, 0.5);
+  const bangSide = new THREE.Mesh(bangSideGeo, hairMat);
+  bangSide.position.set(-0.11, 0.13, 0.185);
+  bangSide.rotation.z = Math.PI / 2 - 0.32;
+  bangSide.rotation.y = -0.35;
+  hairGroup.add(bangSide);
 
-  const lUpperArm = new THREE.Mesh(new THREE.CapsuleGeometry(0.072, 0.16, 10, 14), whiteCoatMat);
-  lUpperArm.position.y = -0.1;
-  chefParts.leftShoulder.add(lUpperArm);
+  // Mechones puntiagudos que salen a la derecha bajo el gorro (rasgo icónico de la plantilla)
+  const spike1Geo = new THREE.ConeGeometry(0.048, 0.14, 16);
+  spike1Geo.scale(1, 1, 0.55);
+  const spike1 = new THREE.Mesh(spike1Geo, hairMat);
+  spike1.position.set(0.24, 0.135, 0.08);
+  spike1.rotation.z = -1.25;
+  spike1.rotation.y = -0.25;
+  hairGroup.add(spike1);
 
-  chefParts.leftElbow.position.set(0, -0.2, 0);
-  chefParts.leftShoulder.add(chefParts.leftElbow);
+  const spike2 = new THREE.Mesh(spike1Geo, hairMat);
+  spike2.scale.set(0.85, 0.85, 0.5);
+  spike2.position.set(0.22, 0.095, 0.11);
+  spike2.rotation.z = -1.4;
+  hairGroup.add(spike2);
 
-  const lForearm = new THREE.Mesh(new THREE.CapsuleGeometry(0.065, 0.14, 10, 14), whiteCoatMat);
-  lForearm.position.y = -0.09;
-  chefParts.leftElbow.add(lForearm);
+  // Patillas frente a las orejas
+  const sideburnGeo = new THREE.CapsuleGeometry(0.022, 0.08, 10, 12);
+  const sideburnL = new THREE.Mesh(sideburnGeo, hairMat);
+  sideburnL.position.set(-0.235, 0.04, 0.09);
+  sideburnL.rotation.z = 0.12;
+  const sideburnR = sideburnL.clone();
+  sideburnR.position.x = 0.235;
+  sideburnR.rotation.z = -0.12;
+  hairGroup.add(sideburnL, sideburnR);
 
-  const lHand = new THREE.Mesh(new THREE.SphereGeometry(0.068, 14, 14), skinMat);
-  lHand.position.y = -0.2;
-  chefParts.leftElbow.add(lHand);
+  // ==========================================
+  // 4) GORRO DE CHEF ABOMBADO EN NUBE (TOQUE BLANCHE DE LA PLANTILLA)
+  // ==========================================
+  rig.hat = new THREE.Group();
+  rig.hat.position.set(0, 0.185, -0.01);
+  rig.hat.rotation.z = -0.03; // Ligera inclinación simpática como el dibujo
+  rig.head.add(rig.hat);
 
-  const lThumb = new THREE.Mesh(new THREE.CapsuleGeometry(0.022, 0.04, 6, 8), skinMat);
-  lThumb.position.set(0.05, -0.19, 0.03);
-  lThumb.rotation.z = -0.6;
-  chefParts.leftElbow.add(lThumb);
+  // Banda cilíndrica blanca alta y limpia sobre la frente
+  const hatBandGeo = new THREE.CylinderGeometry(0.235, 0.222, 0.145, 32);
+  hatBandGeo.scale(1.06, 1, 0.92);
+  const hatBand = new THREE.Mesh(hatBandGeo, coatMat);
+  hatBand.position.y = 0.07;
+  rig.hat.add(hatBand);
 
-  // Brazo Derecho + Espátula Profesional + Smash Burger
-  chefParts.rightShoulder.position.set(0.33, 0.52, 0);
-  chefParts.torso.add(chefParts.rightShoulder);
+  // Corona tipo nube esponjosa con gajos redondeados (8 lóbulos blancos + centro)
+  const puffCloudGroup = new THREE.Group();
+  puffCloudGroup.position.y = 0.20;
+  rig.hat.add(puffCloudGroup);
 
-  const rUpperArm = new THREE.Mesh(new THREE.CapsuleGeometry(0.072, 0.16, 10, 14), whiteCoatMat);
-  rUpperArm.position.y = -0.1;
-  chefParts.rightShoulder.add(rUpperArm);
+  const centerPuff = new THREE.Mesh(new THREE.SphereGeometry(0.22, 28, 22), coatMat);
+  centerPuff.scale.set(1.35, 0.68, 1.12);
+  centerPuff.position.y = 0.02;
+  puffCloudGroup.add(centerPuff);
 
-  chefParts.rightElbow.position.set(0, -0.2, 0);
-  chefParts.rightShoulder.add(chefParts.rightElbow);
+  const numLobes = 8;
+  for (let i = 0; i < numLobes; i++) {
+    const angle = (i / numLobes) * Math.PI * 2;
+    const lobe = new THREE.Mesh(new THREE.SphereGeometry(0.125, 22, 18), i % 2 === 0 ? coatMat : coatShadeMat);
+    lobe.scale.set(1.15, 0.95, 1.15);
+    lobe.position.set(
+      Math.cos(angle) * 0.185,
+      0.01,
+      Math.sin(angle) * 0.145
+    );
+    puffCloudGroup.add(lobe);
+  }
 
-  const rForearm = new THREE.Mesh(new THREE.CapsuleGeometry(0.065, 0.14, 10, 14), whiteCoatMat);
-  rForearm.position.y = -0.09;
-  chefParts.rightElbow.add(rForearm);
+  // ==========================================
+  // 5) BRAZOS ARTICULADOS CON MANGAS ARREMANGADAS Y MANOS NATURALES
+  // ==========================================
+  function createChefArm(sign) {
+    const shoulder = new THREE.Group();
+    shoulder.position.set(sign * 0.175, 0.285, 0);
 
-  const rHand = new THREE.Mesh(new THREE.SphereGeometry(0.068, 14, 14), skinMat);
-  rHand.position.y = -0.2;
-  chefParts.rightElbow.add(rHand);
+    const shoulderBall = new THREE.Mesh(new THREE.SphereGeometry(0.048, 18, 18), coatMat);
+    shoulder.add(shoulderBall);
 
-  // Espátula de acero inoxidable en la mano derecha
-  const spatulaGroup = new THREE.Group();
-  spatulaGroup.position.set(0, -0.2, 0.06);
-  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.022, 0.16, 12), redMat);
+    const upperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.044, 0.040, 0.13, 18), coatMat);
+    upperArm.position.y = -0.065;
+    shoulder.add(upperArm);
+
+    const elbow = new THREE.Group();
+    elbow.position.y = -0.13;
+    shoulder.add(elbow);
+
+    const elbowJoint = new THREE.Mesh(new THREE.SphereGeometry(0.039, 16, 16), coatMat);
+    elbow.add(elbowJoint);
+
+    const forearm = new THREE.Mesh(new THREE.CylinderGeometry(0.039, 0.036, 0.11, 18), coatMat);
+    forearm.position.y = -0.055;
+    elbow.add(forearm);
+
+    // Puño blanco doblado (arremangado como en la plantilla)
+    const rolledCuff = new THREE.Mesh(new THREE.TorusGeometry(0.038, 0.012, 12, 20), coatShadeMat);
+    rolledCuff.rotation.x = Math.PI / 2;
+    rolledCuff.position.y = -0.105;
+    elbow.add(rolledCuff);
+
+    const hand = new THREE.Group();
+    hand.position.y = -0.13;
+    elbow.add(hand);
+
+    const palmGeo = new THREE.SphereGeometry(0.038, 18, 18);
+    palmGeo.scale(1.0, 1.05, 0.82);
+    const palm = new THREE.Mesh(palmGeo, skinMat);
+    hand.add(palm);
+
+    const thumb = new THREE.Mesh(new THREE.CapsuleGeometry(0.011, 0.02, 8, 8), skinMat);
+    thumb.position.set(-sign * 0.03, 0.005, 0.018);
+    thumb.rotation.z = sign * 0.6;
+    hand.add(thumb);
+
+    return { shoulder, elbow, hand };
+  }
+
+  const leftArmObj = createChefArm(-1);
+  const rightArmObj = createChefArm(1);
+  rig.torso.add(leftArmObj.shoulder, rightArmObj.shoulder);
+  rig.armL = leftArmObj.shoulder;
+  rig.forearmL = leftArmObj.elbow;
+  rig.handL = leftArmObj.hand;
+  rig.armR = rightArmObj.shoulder;
+  rig.forearmR = rightArmObj.elbow;
+  rig.handR = rightArmObj.hand;
+
+  // Espátula en la mano derecha (visible al cocinar)
+  rig.spatula = new THREE.Group();
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.11, 12), hairMat);
   handle.rotation.x = Math.PI / 2;
-  handle.position.z = 0.07;
-  spatulaGroup.add(handle);
+  handle.position.z = 0.04;
+  rig.spatula.add(handle);
 
-  const neckBlade = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.012, 0.08), steelMat);
-  neckBlade.position.set(0, 0.01, 0.16);
-  spatulaGroup.add(neckBlade);
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.068, 0.004, 0.085), steelMat);
+  blade.position.z = 0.13;
+  rig.spatula.add(blade);
+  rig.spatula.visible = false;
+  rig.handR.add(rig.spatula);
 
-  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.012, 0.21), steelMat);
-  blade.position.set(0, 0.015, 0.27);
-  spatulaGroup.add(blade);
+  // Bandeja con burger en la mano izquierda (visible en Súper/Fin del show)
+  rig.trayBurger = new THREE.Group();
+  const miniBurger = createSmashBurgerMesh(0.45);
+  miniBurger.position.set(0, 0.02, 0.04);
+  rig.trayBurger.add(miniBurger);
+  rig.trayBurger.visible = false;
+  rig.handL.add(rig.trayBurger);
 
-  const heldBurger = createSmashBurgerMesh(0.58);
-  heldBurger.position.set(0, 0.02, 0.27);
-  chefParts.burgerOnSpatula.add(heldBurger);
-  spatulaGroup.add(chefParts.burgerOnSpatula);
+  // ==========================================
+  // 6) PIERNAS GRIS CARBÓN CON DOBLADILLO Y ZAPATILLAS ROJAS (DE LA PLANTILLA)
+  // ==========================================
+  function createChefLeg(sign) {
+    const hip = new THREE.Group();
+    hip.position.set(sign * 0.068, 0.02, 0);
 
-  chefParts.rightElbow.add(spatulaGroup);
+    const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.056, 0.048, 0.15, 20), pantsMat);
+    thigh.position.y = -0.075;
+    hip.add(thigh);
 
-  // 4) PIERNAS CON MUSLO + RODILLA + ZAPATOS DE CHEF CON SUELA
-  chefParts.leftHip.position.set(-0.13, -0.04, 0);
-  chefParts.hips.add(chefParts.leftHip);
+    const knee = new THREE.Group();
+    knee.position.y = -0.15;
+    hip.add(knee);
 
-  const lThigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.088, 0.14, 10, 14), darkPantsMat);
-  lThigh.position.y = -0.1;
-  chefParts.leftHip.add(lThigh);
+    const kneeJoint = new THREE.Mesh(new THREE.SphereGeometry(0.047, 16, 16), pantsMat);
+    knee.add(kneeJoint);
 
-  chefParts.leftKnee.position.set(0, -0.2, 0);
-  chefParts.leftHip.add(chefParts.leftKnee);
+    const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.052, 0.14, 20), pantsMat);
+    shin.position.y = -0.07;
+    knee.add(shin);
 
-  const lCalf = new THREE.Mesh(new THREE.CapsuleGeometry(0.078, 0.12, 10, 14), darkPantsMat);
-  lCalf.position.y = -0.08;
-  chefParts.leftKnee.add(lCalf);
+    // Dobladillo inferior del pantalón
+    const pantCuff = new THREE.Mesh(new THREE.TorusGeometry(0.049, 0.010, 10, 20), pantsMat);
+    pantCuff.rotation.x = Math.PI / 2;
+    pantCuff.position.y = -0.135;
+    knee.add(pantCuff);
 
-  const lShoe = new THREE.Mesh(new THREE.CapsuleGeometry(0.075, 0.11, 10, 14), shoeMat);
-  lShoe.rotation.x = Math.PI / 2;
-  lShoe.position.set(0, -0.16, 0.045);
-  chefParts.leftKnee.add(lShoe);
+    const ankle = new THREE.Group();
+    ankle.position.y = -0.145;
+    knee.add(ankle);
 
-  chefParts.rightHip.position.set(0.13, -0.04, 0);
-  chefParts.hips.add(chefParts.rightHip);
+    // Zapatilla Roja Brillante como en la imagen de Pablito
+    const shoeGeo = new THREE.SphereGeometry(0.056, 20, 16);
+    shoeGeo.scale(1.02, 0.62, 1.48);
+    const shoe = new THREE.Mesh(shoeGeo, shoeRedMat);
+    shoe.position.set(0, -0.012, 0.028);
+    ankle.add(shoe);
 
-  const rThigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.088, 0.14, 10, 14), darkPantsMat);
-  rThigh.position.y = -0.1;
-  chefParts.rightHip.add(rThigh);
+    // Suela inferior oscura/blanca
+    const soleGeo = new THREE.CylinderGeometry(0.056, 0.058, 0.014, 20);
+    soleGeo.scale(1.0, 1, 1.45);
+    const sole = new THREE.Mesh(soleGeo, coatMat);
+    sole.position.set(0, -0.036, 0.028);
+    ankle.add(sole);
 
-  chefParts.rightKnee.position.set(0, -0.2, 0);
-  chefParts.rightHip.add(chefParts.rightKnee);
+    return { hip, knee, ankle };
+  }
 
-  const rCalf = new THREE.Mesh(new THREE.CapsuleGeometry(0.078, 0.12, 10, 14), darkPantsMat);
-  rCalf.position.y = -0.08;
-  chefParts.rightKnee.add(rCalf);
+  const leftLegObj = createChefLeg(-1);
+  const rightLegObj = createChefLeg(1);
+  rig.pelvis.add(leftLegObj.hip, rightLegObj.hip);
+  rig.legL = leftLegObj.hip;
+  rig.shinL = leftLegObj.knee;
+  rig.footL = leftLegObj.ankle;
+  rig.legR = rightLegObj.hip;
+  rig.shinR = rightLegObj.knee;
+  rig.footR = rightLegObj.ankle;
 
-  const rShoe = new THREE.Mesh(new THREE.CapsuleGeometry(0.075, 0.11, 10, 14), shoeMat);
-  rShoe.rotation.x = Math.PI / 2;
-  rShoe.position.set(0, -0.16, 0.045);
-  chefParts.rightKnee.add(rShoe);
+  // ==========================================
+  // 7) ESTACIÓN DE PARRILLA SMASH PRO (CON FUEGO Y HUMO)
+  // ==========================================
+  rig.grillStation = new THREE.Group();
+  rig.grillStation.position.set(0, 0, 0.42);
+  rig.grillStation.visible = false;
+  rig.grillStation.scale.set(0.01, 0.01, 0.01);
 
-  // 5) ESTACIÓN DE PARRILLA SMASH PRO (Aparece al tocar 🔥 Parrilla)
-  buildProGrillStation(castIronMat, steelMat, goldMat);
+  const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.23, 0.34, 24), castIronMat);
+  stand.position.y = 0.17;
+  rig.grillStation.add(stand);
 
-  chefParts.root.traverse((child) => {
-    if (child.isMesh) {
-      child.castShadow = true;
-      child.receiveShadow = true;
-    }
-  });
+  const standGold = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.21, 0.025, 24), goldMat);
+  standGold.position.y = 0.30;
+  rig.grillStation.add(standGold);
 
-  characterGroup.add(chefParts.root);
-}
+  const griddlePlate = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.035, 0.3), castIronMat);
+  griddlePlate.position.y = 0.35;
+  rig.grillStation.add(griddlePlate);
 
-function buildProGrillStation(castIronMat, steelMat, goldMat) {
-  chefParts.grillStation.position.set(0, 0, 0.62);
-  chefParts.grillStation.visible = false;
-  chefParts.grillStation.scale.set(0.01, 0.01, 0.01);
-
-  // Mesa de acero de la parrilla
-  const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.36, 0.56, 24), castIronMat);
-  stand.position.y = 0.28;
-  chefParts.grillStation.add(stand);
-
-  const goldTrim = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.33, 0.04, 24), goldMat);
-  goldTrim.position.y = 0.5;
-  chefParts.grillStation.add(goldTrim);
-
-  // Plancha de hierro fundido con bordes
-  const griddlePlate = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.05, 0.48), castIronMat);
-  griddlePlate.position.y = 0.58;
-  chefParts.grillStation.add(griddlePlate);
-
-  // Brasas incandescentes encendidas sobre la parrilla
   const emberMat = new THREE.MeshBasicMaterial({ color: 0xff4500 });
-  const emberGlow = new THREE.Mesh(new THREE.PlaneGeometry(0.56, 0.36), emberMat);
+  const emberGlow = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 0.23), emberMat);
   emberGlow.rotation.x = -Math.PI / 2;
-  emberGlow.position.y = 0.607;
-  chefParts.grillStation.add(emberGlow);
+  emberGlow.position.y = 0.369;
+  rig.grillStation.add(emberGlow);
 
-  // Luz cálida real de fuego que ilumina la cara y delantal del Chef cuando cocina
-  chefParts.emberLight = new THREE.PointLight(0xff6b00, 0, 2.2);
-  chefParts.emberLight.position.set(0, 0.78, 0);
-  chefParts.grillStation.add(chefParts.emberLight);
+  rig.emberLight = new THREE.PointLight(0xff6b00, 0, 1.8);
+  rig.emberLight.position.set(0, 0.5, 0);
+  rig.grillStation.add(rig.emberLight);
 
-  // Hamburguesa cocinándose en la plancha
-  const grillBurger = createSmashBurgerMesh(0.75);
-  chefParts.grillBurger.position.set(0, 0.61, 0);
-  chefParts.grillBurger.add(grillBurger);
-  chefParts.grillStation.add(chefParts.grillBurger);
+  rig.grillBurger = createSmashBurgerMesh(0.55);
+  rig.grillBurger.position.set(0, 0.37, 0);
+  rig.grillStation.add(rig.grillBurger);
 
-  // Crear pool de 28 partículas 3D de fuego, chispas cheddar y humo
-  for (let i = 0; i < 28; i++) {
-    const isSmoke = i >= 18;
+  for (let i = 0; i < 24; i++) {
+    const isSmoke = i >= 15;
     const pGeo = isSmoke
-      ? new THREE.SphereGeometry(0.055, 10, 10)
-      : new THREE.OctahedronGeometry(0.025, 0);
+      ? new THREE.SphereGeometry(0.032, 10, 10)
+      : new THREE.OctahedronGeometry(0.016, 0);
     const pMat = new THREE.MeshBasicMaterial({
       color: isSmoke ? 0xfff8f0 : (i % 2 === 0 ? 0xffb800 : 0xff3838),
       transparent: true,
       opacity: 0.85
     });
     const pMesh = new THREE.Mesh(pGeo, pMat);
-    resetParticle(pMesh, isSmoke);
-    chefParts.grillStation.add(pMesh);
-    grillParticles.push({ mesh: pMesh, isSmoke, speedY: 0.4 + Math.random() * 0.7, phase: Math.random() * 6.28 });
+    resetGrillParticle(pMesh, isSmoke);
+    rig.grillStation.add(pMesh);
+    rig.grillParticles.push({ mesh: pMesh, isSmoke, speedY: 0.32 + Math.random() * 0.42, phase: Math.random() * 6.28 });
   }
 
-  chefParts.root.add(chefParts.grillStation);
+  rig.root.add(rig.grillStation);
+
+  rig.root.traverse((obj) => {
+    if (obj.isMesh) {
+      obj.castShadow = true;
+      obj.receiveShadow = true;
+    }
+  });
+
+  characterGroup.add(rig.root);
 }
 
-function resetParticle(mesh, isSmoke) {
+function resetGrillParticle(mesh, isSmoke) {
   mesh.position.set(
-    (Math.random() - 0.5) * 0.44,
-    0.62 + Math.random() * 0.1,
-    (Math.random() - 0.5) * 0.28
+    (Math.random() - 0.5) * 0.28,
+    0.38 + Math.random() * 0.05,
+    (Math.random() - 0.5) * 0.18
   );
-  const s = isSmoke ? 0.5 : 0.8;
+  const s = isSmoke ? 0.5 : 0.85;
   mesh.scale.set(s, s, s);
 }
 
 // ==========================================
-// 6. ANIMACIÓN FLUIDA CON INTERPOLACIÓN DAMP (60 FPS)
+// 6. SISTEMA DE ANIMACIÓN HUMANOIDE FLUIDA Y NATURAL
 // ==========================================
+// Convención anatómica verificada:
+// - arm.rotation.x NEGATIVO = levanta el brazo hacia ADELANTE (frente al pecho/cara).
+// - arm.rotation.x POSITIVO = lleva el brazo ligeramente hacia atrás.
+// - armL.rotation.z POSITIVO = separa el brazo izquierdo del cuerpo hacia afuera.
+// - armR.rotation.z NEGATIVO = separa el brazo derecho del cuerpo hacia afuera.
+// - shin.rotation.x POSITIVO = dobla la rodilla naturalmente hacia atrás.
+
 function triggerChefAction(actionName) {
-  currentAnimState = actionName;
+  currentAction = actionName;
   if (actionName === 'Cook') {
-    oneShotTimer = 3.2;
-    chefParts.grillStation.visible = true;
+    actionTimer = 3.5;
+    rig.grillStation.visible = true;
     updatePablitoBannerText('🔥 ¡Smash Burger P&M!');
   } else if (actionName === 'Wave') {
-    oneShotTimer = 1.8;
+    actionTimer = 2.4;
     updatePablitoBannerText('👋 ¡Hola! Soy Pablito');
   } else if (actionName === 'Dance') {
-    oneShotTimer = 999;
+    actionTimer = 3.2;
     updatePablitoBannerText('💃 ¡Pablito con sabor!');
   } else if (actionName === 'Jump') {
-    oneShotTimer = 1.7;
+    actionTimer = 1.15;
     updatePablitoBannerText('🎉 ¡Arriba Pablo & María!');
   } else {
-    oneShotTimer = 1.7;
+    actionTimer = 0;
+    updatePablitoBannerText('👨‍🍳 Pablito el Chef');
   }
 }
 
-function dampAngle(current, target, lambda, delta) {
-  return THREE.MathUtils.damp(current, target, lambda, delta);
+function dampRot(joint, tx, ty, tz, lambda, delta) {
+  joint.rotation.x = THREE.MathUtils.damp(joint.rotation.x, tx, lambda, delta);
+  joint.rotation.y = THREE.MathUtils.damp(joint.rotation.y, ty, lambda, delta);
+  joint.rotation.z = THREE.MathUtils.damp(joint.rotation.z, tz, lambda, delta);
 }
 
-function updateChefAnimation(delta) {
-  animTimer += delta;
+function updateNaturalChefAnimations(delta) {
+  if (!rig.root) return;
+  animClock += delta;
   blinkTimer += delta;
 
-  // Parpadeo natural de los ojos cada ~3.4 segundos
-  const isBlinking = (blinkTimer % 3.4) > 3.25;
-  const targetLidRot = isBlinking ? 0.05 : -Math.PI * 0.45;
-  chefParts.eyelids.forEach((lid) => {
-    lid.rotation.x = dampAngle(lid.rotation.x, targetLidRot, 22, delta);
-  });
-
-  const speedMag = Math.hypot(smoothVelocity.x, smoothVelocity.z);
-  const moving = speedMag > 0.015;
-
-  if (oneShotTimer > 0) {
-    oneShotTimer -= delta;
-    if (oneShotTimer <= 0) {
-      currentAnimState = moving ? (isTurbo ? 'Running' : 'Walking') : 'Idle';
+  if (actionTimer > 0) {
+    actionTimer -= delta;
+    if (actionTimer <= 0) {
+      const speed = Math.hypot(smoothVelocity.x, smoothVelocity.z);
+      currentAction = speed > 0.015 ? (isTurbo ? 'Running' : 'Walking') : 'Idle';
       updatePablitoBannerText('👨‍🍳 Pablito el Chef');
     }
-  } else {
-    if (moving && currentAnimState !== 'Dance') {
-      currentAnimState = isTurbo ? 'Running' : 'Walking';
-    } else if (!moving && (currentAnimState === 'Walking' || currentAnimState === 'Running')) {
-      currentAnimState = 'Idle';
-    }
   }
 
-  // Mostrar/ocultar suavemente la estación de parrilla Pro
-  const showGrill = currentAnimState === 'Cook';
-  const targetGrillScale = showGrill ? 1 : 0.001;
-  const gs = dampAngle(chefParts.grillStation.scale.x, targetGrillScale, 12, delta);
-  chefParts.grillStation.scale.set(gs, gs, gs);
-  if (gs < 0.02 && !showGrill) chefParts.grillStation.visible = false;
-  if (chefParts.emberLight) {
-    chefParts.emberLight.intensity = showGrill ? 2.2 + Math.sin(animTimer * 18) * 0.6 : 0;
+  // Parpadeo natural cada 3.6 segundos
+  const isBlinking = (blinkTimer % 3.6) > 3.46;
+  const targetLidRot = isBlinking ? -0.05 : -Math.PI * 0.55;
+  if (rig.eyelidL && rig.eyelidR) {
+    rig.eyelidL.rotation.x = THREE.MathUtils.damp(rig.eyelidL.rotation.x, targetLidRot, 28, delta);
+    rig.eyelidR.rotation.x = THREE.MathUtils.damp(rig.eyelidR.rotation.x, targetLidRot, 28, delta);
   }
 
-  // Ocultar la burger de la mano cuando está cocinando en la plancha grande
-  chefParts.burgerOnSpatula.visible = !showGrill;
+  const isCooking = currentAction === 'Cook';
+  rig.spatula.visible = isCooking;
+  rig.trayBurger.visible = false;
 
-  // Valores objetivo de las articulaciones para interpolar con suavidad
-  let targetRootY = 0;
-  let targetTorsoRotX = 0, targetTorsoRotY = 0, targetTorsoRotZ = 0;
-  let targetHeadRotX = 0, targetHeadRotY = 0, targetHeadRotZ = 0;
-  let targetLShoulderX = 0, targetLShoulderZ = 0.14, targetLElbowX = -0.25;
-  let targetRShoulderX = -0.35, targetRShoulderZ = -0.12, targetRElbowX = -0.45;
-  let targetLHipX = 0, targetLKneeX = 0;
-  let targetRHipX = 0, targetRKneeX = 0;
+  const targetGrillScale = isCooking ? 1 : 0.001;
+  const gs = THREE.MathUtils.damp(rig.grillStation.scale.x, targetGrillScale, 12, delta);
+  rig.grillStation.scale.set(gs, gs, gs);
+  if (gs < 0.02 && !isCooking) rig.grillStation.visible = false;
 
-  if (currentAnimState === 'Idle') {
-    const t = animTimer * 2.4;
-    targetRootY = Math.sin(t) * 0.012;
-    targetHeadRotY = Math.sin(t * 0.55) * 0.14;
-    targetHeadRotZ = Math.cos(t * 0.55) * 0.04;
-    targetLShoulderZ = 0.14 + Math.sin(t) * 0.04;
-    targetRShoulderX = -0.32 + Math.cos(t) * 0.04;
-  } else if (currentAnimState === 'Walking' || currentAnimState === 'Running') {
-    // El ritmo y amplitud de la zancada se adaptan proporcionalmente a qué tanto empujes el Joystick
-    const joyRatio = THREE.MathUtils.clamp(speedMag / (isTurbo ? 0.34 : 0.18), 0.35, 1.3);
-    const freq = (isTurbo ? 12 : 8.5) * Math.max(0.7, joyRatio);
-    const amp = (isTurbo ? 0.68 : 0.46) * joyRatio;
-    const t = animTimer * freq;
+  if (rig.emberLight) {
+    rig.emberLight.intensity = isCooking ? 2.4 + Math.sin(animClock * 18) * 0.7 : 0;
+  }
 
-    const lCycle = Math.sin(t);
-    const rCycle = Math.sin(t + Math.PI);
-
-    targetRootY = Math.abs(Math.cos(t)) * 0.045 * joyRatio;
-    targetTorsoRotX = 0.08 * joyRatio; // Inclinación natural al caminar
-    targetTorsoRotY = Math.sin(t) * 0.12 * joyRatio;
-    targetTorsoRotZ = Math.cos(t) * 0.05 * joyRatio;
-
-    targetLHipX = lCycle * amp;
-    targetLKneeX = Math.max(0, -lCycle * amp * 1.15); // La rodilla se flexiona al levantar el pie
-    targetRHipX = rCycle * amp;
-    targetRKneeX = Math.max(0, -rCycle * amp * 1.15);
-
-    targetLShoulderX = rCycle * amp * 0.85;
-    targetLElbowX = -0.35 - Math.max(0, rCycle) * 0.35;
-    targetRShoulderX = -0.3 + lCycle * amp * 0.45;
-    targetRElbowX = -0.5;
-    targetHeadRotY = -targetTorsoRotY * 0.6;
-  } else if (currentAnimState === 'Cook') {
-    // Show de Parrilla Pro: Sazonar con mano izquierda + Voltear Smash Burger en el aire con fuego
-    const t = animTimer * 7.5;
-    const flipPhase = (animTimer * 2.2) % 1;
+  if (isCooking) {
+    const flipPhase = (animClock * 2.2) % 1;
     const burgerArc = Math.sin(flipPhase * Math.PI);
+    rig.grillBurger.position.y = 0.37 + Math.max(0, burgerArc) * 0.28;
+    rig.grillBurger.rotation.x = flipPhase * Math.PI * 2;
+    rig.grillBurger.rotation.y = animClock * 2.5;
 
-    targetTorsoRotX = 0.12;
-    targetTorsoRotY = Math.sin(t * 0.5) * 0.18;
-    targetHeadRotX = 0.18 - burgerArc * 0.42; // El Chef sigue con la mirada la hamburguesa en el aire
-
-    // Mano izquierda sazonando sobre la parrilla
-    targetLShoulderX = -0.95 + Math.sin(t * 1.8) * 0.25;
-    targetLShoulderZ = 0.25;
-    targetLElbowX = -0.65 + Math.cos(t * 1.8) * 0.25;
-
-    // Mano derecha con la espátula impulsando la Smash Burger
-    targetRShoulderX = -0.85 - burgerArc * 0.45;
-    targetRElbowX = -0.55 - burgerArc * 0.35;
-
-    // Animar la hamburguesa en la plancha dando doble giro en el aire
-    chefParts.grillBurger.position.y = 0.61 + Math.max(0, burgerArc) * 0.52;
-    chefParts.grillBurger.rotation.x = flipPhase * Math.PI * 4;
-    chefParts.grillBurger.rotation.y = animTimer * 3;
-
-    // Animar partículas 3D de fuego, chispas y humo
-    grillParticles.forEach((p) => {
+    rig.grillParticles.forEach((p) => {
       p.mesh.position.y += p.speedY * delta;
-      p.mesh.position.x += Math.sin(animTimer * 5 + p.phase) * 0.12 * delta;
+      p.mesh.position.x += Math.sin(animClock * 5 + p.phase) * 0.08 * delta;
       p.mesh.rotation.y += delta * 4;
       if (p.isSmoke) {
-        const s = p.mesh.scale.x + delta * 0.8;
+        const s = p.mesh.scale.x + delta * 0.6;
         p.mesh.scale.set(s, s, s);
       }
-      if (p.mesh.position.y > (p.isSmoke ? 1.35 : 1.05)) {
-        resetParticle(p.mesh, p.isSmoke);
+      if (p.mesh.position.y > (p.isSmoke ? 0.78 : 0.62)) {
+        resetGrillParticle(p.mesh, p.isSmoke);
       }
     });
-  } else if (currentAnimState === 'Wave') {
-    const t = animTimer * 10;
-    targetLShoulderX = -0.4;
-    targetLShoulderZ = 2.35 + Math.sin(t) * 0.32;
-    targetLElbowX = -0.4 + Math.cos(t) * 0.2;
-    targetHeadRotZ = 0.12;
-  } else if (currentAnimState === 'Dance') {
-    const t = animTimer * 8.5;
-    targetRootY = Math.abs(Math.sin(t)) * 0.08;
-    targetTorsoRotY = Math.sin(t * 0.5) * 0.45;
-    targetTorsoRotZ = Math.cos(t) * 0.14;
-    targetLShoulderZ = 2.1 + Math.sin(t) * 0.45;
-    targetRShoulderX = -0.9 + Math.cos(t) * 0.4;
-    targetLHipX = Math.sin(t) * 0.4;
-    targetLKneeX = Math.max(0, Math.cos(t) * 0.5);
-    targetRHipX = -Math.sin(t) * 0.4;
-    targetRKneeX = Math.max(0, -Math.cos(t) * 0.5);
-  } else if (currentAnimState === 'Jump') {
-    const progress = 1 - Math.max(0, oneShotTimer / 1.7);
-    targetRootY = Math.max(0, Math.sin(progress * Math.PI) * 0.42);
-    targetLShoulderZ = 2.3;
-    targetRShoulderX = -1.3;
-    targetLKneeX = 0.45;
-    targetRKneeX = 0.45;
   }
 
-  // Aplicar interpolación DAMP ultra fluida a todas las articulaciones
-  const smoothFactor = 14;
-  chefParts.root.position.y = dampAngle(chefParts.root.position.y, targetRootY, smoothFactor, delta);
-  chefParts.torso.rotation.x = dampAngle(chefParts.torso.rotation.x, targetTorsoRotX, smoothFactor, delta);
-  chefParts.torso.rotation.y = dampAngle(chefParts.torso.rotation.y, targetTorsoRotY, smoothFactor, delta);
-  chefParts.torso.rotation.z = dampAngle(chefParts.torso.rotation.z, targetTorsoRotZ, smoothFactor, delta);
+  // Poses objetivo por articulación (todas dentro de límites anatómicos humanos)
+  const sm = 14;
+  let pelvisY = 0.32;
+  let pelvisRot = [0, 0, 0];
+  let torsoRot = [0, 0, 0];
+  let headRot = [0, 0, 0];
+  let armLRot = [0, 0, 0];
+  let forearmLRot = [0, 0, 0];
+  let armRRot = [0, 0, 0];
+  let forearmRRot = [0, 0, 0];
+  let legLRot = [0, 0, 0];
+  let shinLRot = [0, 0, 0];
+  let footLRot = [0, 0, 0];
+  let legRRot = [0, 0, 0];
+  let shinRRot = [0, 0, 0];
+  let footRRot = [0, 0, 0];
 
-  chefParts.head.rotation.x = dampAngle(chefParts.head.rotation.x, targetHeadRotX, smoothFactor, delta);
-  chefParts.head.rotation.y = dampAngle(chefParts.head.rotation.y, targetHeadRotY, smoothFactor, delta);
-  chefParts.head.rotation.z = dampAngle(chefParts.head.rotation.z, targetHeadRotZ, smoothFactor, delta);
+  if (currentAction === 'Walking' || currentAction === 'Running') {
+    const isRun = currentAction === 'Running';
+    const speedFactor = isRun ? 11.5 : 7.5;
+    walkCycle += delta * speedFactor;
 
-  chefParts.leftShoulder.rotation.x = dampAngle(chefParts.leftShoulder.rotation.x, targetLShoulderX, smoothFactor, delta);
-  chefParts.leftShoulder.rotation.z = dampAngle(chefParts.leftShoulder.rotation.z, targetLShoulderZ, smoothFactor, delta);
-  chefParts.leftElbow.rotation.x = dampAngle(chefParts.leftElbow.rotation.x, targetLElbowX, smoothFactor, delta);
+    const stride = isRun ? 0.58 : 0.38;
+    const bounce = Math.abs(Math.sin(walkCycle)) * (isRun ? 0.038 : 0.018);
+    pelvisY = 0.32 + bounce;
 
-  chefParts.rightShoulder.rotation.x = dampAngle(chefParts.rightShoulder.rotation.x, targetRShoulderX, smoothFactor, delta);
-  chefParts.rightShoulder.rotation.z = dampAngle(chefParts.rightShoulder.rotation.z, targetRShoulderZ, smoothFactor, delta);
-  chefParts.rightElbow.rotation.x = dampAngle(chefParts.rightElbow.rotation.x, targetRElbowX, smoothFactor, delta);
+    // Balanceo natural de cadera y contrarrotación de torso
+    pelvisRot = [0, Math.sin(walkCycle) * 0.08, Math.cos(walkCycle) * 0.03];
+    torsoRot = [isRun ? 0.10 : 0.04, -Math.sin(walkCycle) * 0.10, 0];
+    headRot = [Math.sin(walkCycle * 2) * 0.03, Math.sin(walkCycle) * 0.05, 0];
 
-  chefParts.leftHip.rotation.x = dampAngle(chefParts.leftHip.rotation.x, targetLHipX, smoothFactor, delta);
-  chefParts.leftKnee.rotation.x = dampAngle(chefParts.leftKnee.rotation.x, targetLKneeX, smoothFactor, delta);
-  chefParts.rightHip.rotation.x = dampAngle(chefParts.rightHip.rotation.x, targetRHipX, smoothFactor, delta);
-  chefParts.rightKnee.rotation.x = dampAngle(chefParts.rightKnee.rotation.x, targetRKneeX, smoothFactor, delta);
+    // Piernas: cuando una va adelante (negativo X), la otra va atrás (positivo X)
+    // Rodillas (shin): SOLO doblan hacia atrás (positivo X) cuando el pie se levanta
+    const swingL = Math.sin(walkCycle) * stride;
+    const swingR = -Math.sin(walkCycle) * stride;
+    const kneeBendL = Math.max(0, -Math.cos(walkCycle)) * (isRun ? 0.78 : 0.48) + 0.06;
+    const kneeBendR = Math.max(0, Math.cos(walkCycle)) * (isRun ? 0.78 : 0.48) + 0.06;
+
+    legLRot = [swingL, 0, -0.02];
+    shinLRot = [kneeBendL, 0, 0];
+    footLRot = [-swingL * 0.35, 0, 0];
+
+    legRRot = [swingR, 0, 0.02];
+    shinRRot = [kneeBendR, 0, 0];
+    footRRot = [-swingR * 0.35, 0, 0];
+
+    // Brazos: balanceo natural opuesto a las piernas (nunca giran hacia atrás de forma antinatural)
+    // Codos siempre ligeramente flexionados hacia adelante (-0.35 rad)
+    const armSwingL = -Math.sin(walkCycle) * (isRun ? 0.45 : 0.28);
+    const armSwingR = Math.sin(walkCycle) * (isRun ? 0.45 : 0.28);
+
+    armLRot = [armSwingL - 0.08, 0, 0.16];
+    forearmLRot = [isRun ? -0.65 : -0.35, 0, 0];
+
+    armRRot = [armSwingR - 0.08, 0, -0.16];
+    forearmRRot = [isRun ? -0.65 : -0.35, 0, 0];
+
+  } else if (currentAction === 'Wave') {
+    // 👋 SALUDAR NATURAL:
+    // Mano derecha se levanta AL FRENTE y ARRIBA (nunca hacia atrás) y saluda de lado a lado.
+    // Mano izquierda descansa con estilo en la cintura (como en la plantilla).
+    const waveOsc = Math.sin(animClock * 11);
+    pelvisY = 0.32 + Math.sin(animClock * 3) * 0.006;
+    torsoRot = [0, -0.08, 0.03];
+    headRot = [0.02, 0.08, -0.06];
+
+    // Brazo izquierdo en la jarra/cintura (igual a la plantilla)
+    armLRot = [0.05, 0, 0.52];
+    forearmLRot = [-0.45, 0, -0.82];
+
+    // Brazo derecho levantado hacia adelante y afuera, antebrazo arriba saludando
+    armRRot = [-0.75, -0.15, -0.78];
+    forearmRRot = [-1.15, 0, waveOsc * 0.32 - 0.15];
+
+    legLRot = [0, 0, -0.04];
+    legRRot = [0, 0, 0.04];
+
+  } else if (currentAction === 'Cook') {
+    // 🔥 COCINAR EN LA PARRILLA SMASH:
+    // Ambos brazos al frente sobre la plancha; la mano derecha voltea la burger con la espátula
+    const flipCycle = animClock * 8.5;
+    pelvisY = 0.315 + Math.abs(Math.sin(flipCycle)) * 0.012;
+    torsoRot = [0.12, Math.sin(flipCycle * 0.5) * 0.08, 0];
+    headRot = [0.14, Math.sin(flipCycle * 0.5) * 0.08, 0];
+
+    // Brazo izquierdo al frente sazonando
+    armLRot = [-0.65 + Math.sin(flipCycle) * 0.12, 0.15, 0.22];
+    forearmLRot = [-0.68, 0, -0.15];
+
+    // Brazo derecho al frente manejando la espátula sobre la parrilla
+    armRRot = [-0.75 - Math.abs(Math.sin(flipCycle)) * 0.25, -0.12, -0.20];
+    forearmRRot = [-0.72 + Math.cos(flipCycle) * 0.28, 0, 0.12];
+
+    legLRot = [0, 0, -0.05];
+    legRRot = [0, 0, 0.05];
+
+  } else if (currentAction === 'Dance') {
+    // 💃 BAILE DIVERTIDO Y NATURAL:
+    const beat = animClock * 7.5;
+    pelvisY = 0.305 + Math.abs(Math.sin(beat * 2)) * 0.032;
+    pelvisRot = [0, Math.sin(beat) * 0.18, Math.sin(beat) * 0.08];
+    torsoRot = [0.04, -Math.sin(beat) * 0.15, -Math.sin(beat) * 0.06];
+    headRot = [Math.abs(Math.sin(beat * 2)) * 0.06, Math.sin(beat) * 0.14, Math.sin(beat) * 0.08];
+
+    // Brazos al frente llevando el ritmo (siempre adelante del torso)
+    armLRot = [-0.55 + Math.sin(beat) * 0.35, 0, 0.45 + Math.cos(beat) * 0.15];
+    forearmLRot = [-0.85, 0, -0.2];
+
+    armRRot = [-0.55 - Math.sin(beat) * 0.35, 0, -0.45 + Math.cos(beat) * 0.15];
+    forearmRRot = [-0.85, 0, 0.2];
+
+    legLRot = [-Math.max(0, Math.sin(beat)) * 0.32, 0, -0.05];
+    shinLRot = [Math.max(0, Math.sin(beat)) * 0.55, 0, 0];
+
+    legRRot = [-Math.max(0, -Math.sin(beat)) * 0.32, 0, 0.05];
+    shinRRot = [Math.max(0, -Math.sin(beat)) * 0.55, 0, 0];
+
+  } else if (currentAction === 'Jump') {
+    // 🦘 SALTO DE ALEGRÍA:
+    const progress = 1 - Math.max(0, actionTimer / 1.15);
+    const jumpArc = Math.sin(progress * Math.PI);
+    pelvisY = 0.32 + jumpArc * 0.24;
+    torsoRot = [-0.06 * jumpArc, 0, 0];
+    headRot = [-0.08 * jumpArc, 0, 0];
+
+    // Brazos arriba celebrando (hacia adelante y arriba)
+    armLRot = [-1.15 * jumpArc, 0, 0.55];
+    forearmLRot = [-0.45, 0, 0];
+
+    armRRot = [-1.15 * jumpArc, 0, -0.55];
+    forearmRRot = [-0.45, 0, 0];
+
+    legLRot = [-0.25 * jumpArc, 0, -0.06];
+    shinLRot = [0.55 * jumpArc, 0, 0];
+    legRRot = [-0.25 * jumpArc, 0, 0.06];
+    shinRRot = [0.55 * jumpArc, 0, 0];
+
+  } else {
+    // 👨‍🍳 POSE IDLE (REPOSO):
+    // Pose con manos en la cintura como la plantilla de Pablito + respiración suave y mirada viva
+    const breath = Math.sin(animClock * 2.4);
+    const lookCycle = Math.sin(animClock * 1.1);
+
+    pelvisY = 0.32 + breath * 0.005;
+    torsoRot = [breath * 0.015, lookCycle * 0.04, 0];
+    headRot = [breath * 0.02, lookCycle * 0.09, Math.sin(animClock * 0.8) * 0.03];
+
+    // Brazos en jarra (manos apoyadas en la cintura con codos hacia afuera como la imagen)
+    armLRot = [0.06, 0, 0.50 + breath * 0.02];
+    forearmLRot = [-0.42, 0, -0.82];
+
+    armRRot = [0.06, 0, -0.50 - breath * 0.02];
+    forearmRRot = [-0.42, 0, 0.82];
+
+    legLRot = [0, 0, -0.035];
+    shinLRot = [0.03, 0, 0];
+    legRRot = [0, 0, 0.035];
+    shinRRot = [0.03, 0, 0];
+  }
+
+  // Aplicar interpolación exponencial amortiguada (sin tirones ni cortes bruscos)
+  rig.pelvis.position.y = THREE.MathUtils.damp(rig.pelvis.position.y, pelvisY, sm, delta);
+  dampRot(rig.pelvis, pelvisRot[0], pelvisRot[1], pelvisRot[2], sm, delta);
+  dampRot(rig.torso, torsoRot[0], torsoRot[1], torsoRot[2], sm, delta);
+  dampRot(rig.head, headRot[0], headRot[1], headRot[2], sm, delta);
+
+  dampRot(rig.armL, armLRot[0], armLRot[1], armLRot[2], sm, delta);
+  dampRot(rig.forearmL, forearmLRot[0], forearmLRot[1], forearmLRot[2], sm, delta);
+
+  dampRot(rig.armR, armRRot[0], armRRot[1], armRRot[2], sm, delta);
+  dampRot(rig.forearmR, forearmRRot[0], forearmRRot[1], forearmRRot[2], sm, delta);
+
+  dampRot(rig.legL, legLRot[0], legLRot[1], legLRot[2], sm, delta);
+  dampRot(rig.shinL, shinLRot[0], shinLRot[1], shinLRot[2], sm, delta);
+  dampRot(rig.footL, footLRot[0], footLRot[1], footLRot[2], sm, delta);
+
+  dampRot(rig.legR, legRRot[0], legRRot[1], legRRot[2], sm, delta);
+  dampRot(rig.shinR, shinRRot[0], shinRRot[1], shinRRot[2], sm, delta);
+  dampRot(rig.footR, footRRot[0], footRRot[1], footRRot[2], sm, delta);
 }
 
 // ==========================================
-// 7. MOVIMIENTO FLUIDO 360° CON INERCIA Y PERSPECTIVA
+// 7. MOVIMIENTO FLUIDO 360° CON JOYSTICK E INERCIA
 // ==========================================
 function updateMovementOnTable(delta) {
-  // Combinar entrada del Joystick Analógico 360° con teclado (si se usa en PC)
   let inputX = joyVector.x;
   let inputZ = joyVector.y;
 
@@ -1154,19 +1316,18 @@ function updateMovementOnTable(delta) {
   }
 
   const depthMult = getDepthPerspectiveMultiplier(characterGroup.position.z);
-  const scaleRatio = THREE.MathUtils.clamp(currentScale / 0.2, 0.5, 1.4);
+  const scaleRatio = THREE.MathUtils.clamp(currentScale / 0.34, 0.5, 1.5);
   const maxSpeed = (isTurbo ? 0.34 : 0.17) * scaleRatio * THREE.MathUtils.clamp(depthMult, 0.55, 1.35);
 
   const targetVelX = inputX * maxSpeed;
   const targetVelZ = inputZ * maxSpeed;
 
-  // Inercia física suave (aceleración y frenado progresivo)
   smoothVelocity.x = THREE.MathUtils.damp(smoothVelocity.x, targetVelX, 10, delta);
   smoothVelocity.z = THREE.MathUtils.damp(smoothVelocity.z, targetVelZ, 10, delta);
 
   const currentSpeed = Math.hypot(smoothVelocity.x, smoothVelocity.z);
 
-  if (currentSpeed > 0.003) {
+  if (currentSpeed > 0.004 && inputMag > 0.04) {
     const aspect = Math.min(1, window.innerWidth / window.innerHeight);
     const limitX = TABLE_LIMIT * Math.max(0.62, aspect);
     const limitZ = TABLE_LIMIT;
@@ -1184,11 +1345,17 @@ function updateMovementOnTable(delta) {
 
     applyCharacterPerspectiveScale();
 
-    if (inputMag > 0.05) {
-      const targetAngle = Math.atan2(inputX, inputZ);
-      let diff = targetAngle - characterGroup.rotation.y;
-      diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-      characterGroup.rotation.y += diff * Math.min(1, delta * 11);
+    const targetAngle = Math.atan2(inputX, inputZ);
+    let diff = targetAngle - characterGroup.rotation.y;
+    diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+    characterGroup.rotation.y += diff * Math.min(1, delta * 11);
+
+    if (actionTimer <= 0) {
+      currentAction = isTurbo || inputMag > 0.88 ? 'Running' : 'Walking';
+    }
+  } else {
+    if ((currentAction === 'Walking' || currentAction === 'Running') && actionTimer <= 0) {
+      currentAction = 'Idle';
     }
   }
 
@@ -1473,10 +1640,10 @@ function setupUIEvents() {
     setCharacterScale(e.target.value);
   });
   document.getElementById('btn-size-down').addEventListener('click', () => {
-    setCharacterScale(currentScale - 0.03);
+    setCharacterScale(currentScale - 0.05);
   });
   document.getElementById('btn-size-up').addEventListener('click', () => {
-    setCharacterScale(currentScale + 0.03);
+    setCharacterScale(currentScale + 0.05);
   });
 
   document.getElementById('btn-reset-pos').addEventListener('click', () => {
