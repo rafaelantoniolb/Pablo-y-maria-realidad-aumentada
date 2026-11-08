@@ -2,15 +2,16 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Restaurante WebAR 6DoF — Realidad Aumentada Real</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Pablo y María — Realidad Aumentada</title>
   <link rel="stylesheet" href="style.css" />
   <script type="importmap">
     {
       "imports": {
         "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
         "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
-        "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+        "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js",
+        "mindar-image": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js"
       }
     }
   </script>
@@ -19,31 +20,33 @@
   <!-- Contenedor donde MindAR y Three.js inyectan el video y el canvas con rastreo 6DoF -->
   <div id="ar-container"></div>
 
-  <!-- Capa de Interfaz de Usuario (UI Overlay compatible con WebXR dom-overlay) -->
+  <!-- Capa de Interfaz de Usuario adaptada a 100dvh en celulares -->
   <div id="ui-overlay">
     
-    <!-- Barra Superior -->
+    <!-- Barra Superior Compacta -->
     <header class="top-bar">
-      <div class="brand">
-        <span class="brand-icon">🎯</span>
-        <div>
-          <h1>Restaurante AR (Rastreo 6DoF Real)</h1>
-          <p id="status-text">Iniciando motor de visión artificial...</p>
+      <div class="brand-row">
+        <div class="brand">
+          <span class="brand-icon">🍽️</span>
+          <div class="brand-titles">
+            <h1>Pablo y María AR</h1>
+            <p id="status-text">Iniciando cámara AR...</p>
+          </div>
         </div>
+        <button id="btn-minigame" class="pill-btn game-btn">
+          ⭐ <span id="score-val">0</span>
+        </button>
       </div>
 
       <div class="top-actions">
         <button id="btn-show-marker" class="pill-btn highlight-btn">
-          🖼️ Ver Imagen Marcador
+          🖼️ Imagen Marcador
+        </button>
+        <button id="btn-pin-mode" class="pill-btn">
+          📷 Cámara AR
         </button>
         <button id="btn-webxr" class="pill-btn">
-          🌐 WebXR SLAM (Sin Marcador)
-        </button>
-        <button id="btn-pin-mode" class="pill-btn" title="Mantener el personaje visible aunque retires el marcador">
-          📌 Fijar sin marcador: OFF
-        </button>
-        <button id="btn-minigame" class="pill-btn game-btn">
-          ⭐ Juego: <span id="score-val">0</span>
+          🌐 WebXR
         </button>
       </div>
     </header>
@@ -55,31 +58,41 @@
         <div class="corner tr"></div>
         <div class="corner bl"></div>
         <div class="corner br"></div>
-        <img src="./models/card.png" alt="Marcador" class="scan-preview-img" />
+        <img id="scan-preview-img" src="./models/card.png" alt="Marcador" class="scan-preview-img" />
       </div>
       <p class="scan-text">
-        Apunta la cámara al <strong>Marcador de Mesa</strong><br/>
-        <small>(Haz clic en <strong>"🖼️ Ver Imagen Marcador"</strong> arriba para abrirlo en tu celular y mostrarlo a la cámara)</small>
+        Apunta la cámara a esta imagen sobre la mesa<br/>
+        <small>(O toca <strong>"🖼️ Imagen Marcador"</strong> para cambiarla por cualquier foto/logo)</small>
       </p>
     </div>
 
-    <!-- Modal con la Imagen Marcador para mostrar desde el celular o imprimir -->
+    <!-- Modal con la Imagen Marcador + Compilador para subir cualquier imagen propia -->
     <div id="marker-modal" class="modal hidden">
       <div class="modal-card">
         <div class="modal-header">
-          <h2>🖼️ Marcador de Mesa AR (6DoF)</h2>
+          <h2>🖼️ Imagen que Despliega el Objeto AR</h2>
           <button id="btn-close-modal" class="close-btn">✕</button>
         </div>
         <p class="modal-desc">
-          En el restaurante, esta imagen es el <strong>individual de papel, posavasos o menú</strong> sobre la mesa.<br/>
-          <strong>Para probar ahora mismo en tu PC:</strong> Abre esta imagen en tu celular (o tómale una foto a la pantalla con tu celular) y muéstrala frente a tu webcam. ¡Verás cómo la mesa 3D se ancla y se inclina en tiempo real con tu mano!
+          Cuando la cámara ve esta imagen en la mesa, despliega el personaje 3D encima. Puedes apuntar a esta imagen en otro dispositivo o <strong>subir tu propio logo/foto abajo</strong>:
         </p>
         <div class="marker-img-wrapper">
-          <img src="./models/card.png" alt="Marcador AR" />
+          <img id="modal-marker-img" src="./models/card.png" alt="Marcador AR" />
         </div>
+
+        <!-- Selector para definir cualquier imagen propia en vivo -->
+        <div class="custom-marker-box">
+          <label for="upload-marker-input" class="pill-btn highlight-btn upload-label">
+            📤 Subir otra imagen / logo como Marcador
+          </label>
+          <input type="file" id="upload-marker-input" accept="image/*" hidden />
+          <span id="compile-status" class="compile-status"></span>
+        </div>
+
         <div class="modal-footer">
-          <a href="./models/card.png" target="_blank" class="pill-btn highlight-btn">Abrir imagen en pestaña aparte</a>
-          <button id="btn-force-show" class="pill-btn">Probar sin marcador ahora</button>
+          <button id="btn-download-mind" class="pill-btn hidden">💾 Descargar .mind</button>
+          <a id="link-open-marker" href="./models/card.png" target="_blank" class="pill-btn">Abrir imagen sola</a>
+          <button id="btn-force-show" class="pill-btn">Ver en Mesa 3D (Sin cámara)</button>
         </div>
       </div>
     </div>
@@ -87,13 +100,13 @@
     <!-- Controles Inferiores: Flechitas (D-Pad) + Botones de Acción -->
     <footer class="bottom-controls">
       
-      <!-- Cruceta de Flechitas (D-Pad) para mover sobre el plano real rastreado -->
+      <!-- Cruceta de Flechitas (D-Pad) -->
       <div class="dpad-container">
-        <div class="dpad-label">MOVER EN LA MESA</div>
+        <div class="dpad-label">MOVER</div>
         <div class="dpad">
           <button class="dpad-btn up" data-dir="up" aria-label="Arriba">▲</button>
           <button class="dpad-btn left" data-dir="left" aria-label="Izquierda">◀</button>
-          <div class="dpad-center" id="btn-reset-pos" title="Centrar en el marcador">🎯</div>
+          <div class="dpad-center" id="btn-reset-pos" title="Centrar">🎯</div>
           <button class="dpad-btn right" data-dir="right" aria-label="Derecha">▶</button>
           <button class="dpad-btn down" data-dir="down" aria-label="Abajo">▼</button>
         </div>
@@ -101,7 +114,7 @@
 
       <!-- Botones de Animaciones / Interacción -->
       <div class="actions-container">
-        <div class="dpad-label">INTERACCIÓN</div>
+        <div class="dpad-label">ACCIONES</div>
         <div class="action-grid">
           <button class="action-btn" data-action="Wave">
             <span class="emoji">👋</span>
@@ -117,7 +130,7 @@
           </button>
           <button class="action-btn" data-action="ThumbsUp">
             <span class="emoji">👍</span>
-            <span>¡Súper!</span>
+            <span>Súper</span>
           </button>
           <button class="action-btn" id="btn-speed">
             <span class="emoji">⚡</span>
@@ -125,7 +138,7 @@
           </button>
           <button class="action-btn" id="btn-scale">
             <span class="emoji">🔍</span>
-            <span>Escala</span>
+            <span>Tamaño</span>
           </button>
         </div>
       </div>
