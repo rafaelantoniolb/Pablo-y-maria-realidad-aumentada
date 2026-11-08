@@ -6,8 +6,12 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <title>Pablo y María — Realidad Aumentada</title>
-  <link rel="stylesheet" href="style.css?v=9" />
+  <title>Pablo & María — Experiencia AR en tu Mesa</title>
+  <!-- Tipografías gastronómicas modernas estilo @pabloymaria.co -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css?v=11" />
   <script type="importmap">
     {
       "imports": {
@@ -23,45 +27,54 @@
   <!-- Contenedor donde MindAR y Three.js inyectan el video y el canvas -->
   <div id="ar-container"></div>
 
-  <!-- Capa de Interfaz de Usuario adaptada a 100dvh en celulares -->
+  <!-- Capa de Interfaz con identidad Pablo & María -->
   <div id="ui-overlay">
     
-    <!-- Barra Superior Compacta -->
+    <!-- Barra Superior con Menú Oculto Desplegable por Flechita -->
     <header class="top-bar">
       <div class="brand-row">
         <div class="brand">
-          <span class="brand-icon">🍽️</span>
+          <div class="brand-badge">P&amp;M</div>
           <div class="brand-titles">
-            <h1>Pablo y María AR</h1>
-            <p id="status-text">Cargando experiencia AR...</p>
+            <h1>PABLO &amp; MARÍA <span class="brand-tag">AR</span></h1>
+            <p id="status-text">Apunta a tu mesa para empezar</p>
           </div>
         </div>
-        <button id="btn-minigame" class="pill-btn game-btn">
-          ⭐ <span id="score-val">0</span>
-        </button>
+
+        <div class="header-right-btns">
+          <button id="btn-minigame" class="pill-btn game-btn" title="Juego: Atrapa las Burgers">
+            🍔 <span id="score-val">0</span>
+          </button>
+          <button id="btn-toggle-menu" class="drawer-toggle-btn" aria-label="Desplegar opciones" title="Mostrar/Ocultar opciones">
+            <span id="drawer-arrow">▾</span>
+          </button>
+        </div>
       </div>
 
-      <div class="top-actions">
-        <button id="btn-show-marker" class="pill-btn highlight-btn">
-          🖼️ Cambiar Imagen
-        </button>
-        <button id="btn-relock" class="pill-btn">
-          🔄 Re-escanear
-        </button>
-        <button id="btn-tilt-axis" class="pill-btn">
-          📐 Eje Plano
-        </button>
-        <button id="btn-pin-mode" class="pill-btn">
-          🪑 Mesa 3D
-        </button>
-      </div>
+      <!-- Panel Desplegable (Oculto por defecto hasta tocar la flechita ▾) -->
+      <div id="top-drawer" class="top-drawer collapsed">
+        <div class="top-actions">
+          <button id="btn-show-marker" class="pill-btn highlight-btn">
+            🖼️ Imagen Marcador
+          </button>
+          <button id="btn-relock" class="pill-btn">
+            🔄 Re-escanear
+          </button>
+          <button id="btn-tilt-axis" class="pill-btn">
+            📐 Plano
+          </button>
+          <button id="btn-pin-mode" class="pill-btn">
+            🪑 Mesa 3D
+          </button>
+        </div>
 
-      <!-- Barra directa para ajustar el tamaño del muñeco en tiempo real -->
-      <div class="size-control-row">
-        <button id="btn-size-down" class="size-step-btn" aria-label="Achicar">➖</button>
-        <span class="size-label">Tamaño:</span>
-        <input type="range" id="size-slider" min="0.02" max="0.22" step="0.005" value="0.06" />
-        <button id="btn-size-up" class="size-step-btn" aria-label="Agrandar">➕</button>
+        <!-- Barra directa para ajustar el tamaño del Chef en tiempo real -->
+        <div class="size-control-row">
+          <button id="btn-size-down" class="size-step-btn" aria-label="Achicar">➖</button>
+          <span class="size-label">Tamaño Chef:</span>
+          <input type="range" id="size-slider" min="0.08" max="0.55" step="0.01" value="0.18" />
+          <button id="btn-size-up" class="size-step-btn" aria-label="Agrandar">➕</button>
+        </div>
       </div>
     </header>
 
@@ -75,8 +88,8 @@
         <img id="scan-preview-img" src="./models/card.png" alt="Marcador" class="scan-preview-img" />
       </div>
       <p class="scan-text">
-        Apunta la cámara a esta imagen para desplegar y fijar el muñeco<br/>
-        <small>(Una vez detectado quedará fijo aunque muevas la cámara)</small>
+        Apunta la cámara al marcador de tu mesa<br/>
+        <small>(Toca <strong>▾</strong> arriba para cambiar la imagen o pasar a Mesa 3D)</small>
       </p>
     </div>
 
@@ -84,17 +97,16 @@
     <div id="marker-modal" class="modal hidden">
       <div class="modal-card">
         <div class="modal-header">
-          <h2>🖼️ Definir Imagen de la Mesa</h2>
+          <h2>🖼️ Imagen Marcador de Mesa</h2>
           <button id="btn-close-modal" class="close-btn">✕</button>
         </div>
         <p class="modal-desc">
-          Elige cualquier foto o logo desde tu galería. Cuando la cámara la vea una vez, desplegará y dejará fijo al personaje en tu pantalla:
+          Elige cualquier foto, individual o logo desde tu galería. Cuando la cámara la detecte una vez, desplegará y dejará fijo al Chef de <strong>Pablo &amp; María</strong> en tu mesa:
         </p>
         <div class="marker-img-wrapper">
           <img id="modal-marker-img" src="./models/card.png" alt="Marcador AR" />
         </div>
 
-        <!-- Selector directo de archivo -->
         <div class="custom-marker-box">
           <input type="file" id="upload-marker-input" accept="image/*" class="file-input-visible" />
           <div id="compile-progress-bar" class="progress-bar hidden">
@@ -110,28 +122,32 @@
       </div>
     </div>
 
-    <!-- Controles Inferiores: Flechitas (D-Pad) + Botones de Acción -->
+    <!-- Controles Inferiores: Flechitas (D-Pad) + Botones de Acción del Chef -->
     <footer class="bottom-controls">
       
       <!-- Cruceta de Flechitas (D-Pad) -->
       <div class="dpad-container">
-        <div class="dpad-label">MOVER</div>
+        <div class="dpad-label">MOVER CHEF</div>
         <div class="dpad">
-          <button class="dpad-btn up" data-dir="up" aria-label="Arriba">▲</button>
+          <button class="dpad-btn up" data-dir="up" aria-label="Alejar">▲</button>
           <button class="dpad-btn left" data-dir="left" aria-label="Izquierda">◀</button>
-          <div class="dpad-center" id="btn-reset-pos" title="Centrar">🎯</div>
+          <div class="dpad-center" id="btn-reset-pos" title="Centrar Chef">👨‍🍳</div>
           <button class="dpad-btn right" data-dir="right" aria-label="Derecha">▶</button>
-          <button class="dpad-btn down" data-dir="down" aria-label="Abajo">▼</button>
+          <button class="dpad-btn down" data-dir="down" aria-label="Acercar">▼</button>
         </div>
       </div>
 
-      <!-- Botones de Animaciones / Interacción -->
+      <!-- Botones de Animaciones / Interacción del Chef -->
       <div class="actions-container">
-        <div class="dpad-label">ACCIONES</div>
+        <div class="dpad-label">SHOW DEL CHEF</div>
         <div class="action-grid">
           <button class="action-btn" data-action="Wave">
             <span class="emoji">👋</span>
             <span>Saludar</span>
+          </button>
+          <button class="action-btn" data-action="Cook">
+            <span class="emoji">🍔</span>
+            <span>Cocinar</span>
           </button>
           <button class="action-btn" data-action="Dance">
             <span class="emoji">💃</span>
@@ -142,16 +158,12 @@
             <span>Saltar</span>
           </button>
           <button class="action-btn" data-action="ThumbsUp">
-            <span class="emoji">👍</span>
-            <span>Súper</span>
+            <span class="emoji">🔥</span>
+            <span>¡A Comer!</span>
           </button>
           <button class="action-btn" id="btn-speed">
             <span class="emoji">⚡</span>
             <span id="speed-label">Caminar</span>
-          </button>
-          <button class="action-btn" data-action="Punch">
-            <span class="emoji">🥊</span>
-            <span>Golpe</span>
           </button>
         </div>
       </div>
@@ -159,6 +171,6 @@
     </footer>
   </div>
 
-  <script type="module" src="app.js?v=9"></script>
+  <script type="module" src="app.js?v=11"></script>
 </body>
 </html>

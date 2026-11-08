@@ -1,3 +1,13 @@
+:root {
+  --pym-black: #12100e;
+  --pym-charcoal: rgba(20, 17, 15, 0.88);
+  --pym-gold: #ffb800;
+  --pym-gold-dark: #e09600;
+  --pym-red: #e63946;
+  --pym-cream: #fff8f0;
+  --pym-border: rgba(255, 184, 0, 0.32);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -12,9 +22,9 @@ html, body {
   height: 100%;
   height: 100dvh;
   overflow: hidden;
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  background-color: #0e1017;
-  color: #ffffff;
+  font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+  background-color: var(--pym-black);
+  color: var(--pym-cream);
   touch-action: none;
 }
 
@@ -58,19 +68,19 @@ html, body {
   padding-bottom: max(12px, env(safe-area-inset-bottom));
 }
 
-/* Barra superior compacta */
+/* Barra superior estilo Pablo & María con menú colapsable */
 .top-bar {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  background: rgba(14, 16, 23, 0.82);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 14px;
+  background: var(--pym-charcoal);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1.5px solid var(--pym-border);
+  border-radius: 16px;
   padding: 8px 12px;
   pointer-events: auto;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.55);
+  transition: all 0.25s ease;
 }
 
 .brand-row {
@@ -83,17 +93,21 @@ html, body {
 .brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   min-width: 0;
 }
 
-.brand-icon {
-  font-size: 1.25rem;
-  background: rgba(0, 210, 211, 0.18);
-  border: 1px solid rgba(0, 210, 211, 0.45);
+.brand-badge {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.15rem;
+  letter-spacing: 1px;
+  background: linear-gradient(135deg, var(--pym-gold), var(--pym-red));
+  color: #12100e;
+  font-weight: 900;
   border-radius: 10px;
-  padding: 4px 6px;
+  padding: 4px 8px;
   flex-shrink: 0;
+  box-shadow: 0 2px 10px rgba(255, 184, 0, 0.35);
 }
 
 .brand-titles {
@@ -101,18 +115,83 @@ html, body {
 }
 
 .brand h1 {
-  font-size: 0.92rem;
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.2rem;
+  letter-spacing: 1.2px;
+  color: var(--pym-cream);
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.brand-tag {
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.6rem;
+  background: var(--pym-red);
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
 }
 
 #status-text {
-  font-size: 0.72rem;
-  color: #48dbfb;
+  font-size: 0.68rem;
+  color: var(--pym-gold);
   font-weight: 600;
   line-height: 1.2;
+  margin-top: 2px;
+}
+
+.header-right-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Botón de flechita para desplegar/ocultar las opciones superiores */
+.drawer-toggle-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1.5px solid var(--pym-border);
+  background: rgba(255, 184, 0, 0.14);
+  color: var(--pym-gold);
+  font-size: 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: all 0.2s ease;
+}
+
+.drawer-toggle-btn.open {
+  background: var(--pym-gold);
+  color: var(--pym-black);
+}
+
+/* Cajón desplegable de opciones */
+.top-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 184, 0, 0.2);
+  overflow: hidden;
+  max-height: 200px;
+  opacity: 1;
+  transition: max-height 0.28s ease, opacity 0.22s ease, margin 0.25s ease, padding 0.25s ease;
+}
+
+.top-drawer.collapsed {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  padding-top: 0;
+  border-top-color: transparent;
+  pointer-events: none;
 }
 
 .top-actions {
@@ -126,30 +205,31 @@ html, body {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 184, 0, 0.08);
+  border: 1px solid rgba(255, 184, 0, 0.2);
   padding: 5px 10px;
   border-radius: 999px;
   touch-action: auto;
 }
 
 .size-label {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--pym-cream);
 }
 
 #size-slider {
   flex: 1;
-  accent-color: #00d2d3;
+  accent-color: var(--pym-gold);
   height: 6px;
   cursor: pointer;
   touch-action: auto;
 }
 
 .size-step-btn {
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  color: #fff;
+  background: rgba(255, 184, 0, 0.18);
+  border: 1px solid var(--pym-border);
+  color: var(--pym-cream);
   width: 26px;
   height: 26px;
   border-radius: 50%;
@@ -162,17 +242,17 @@ html, body {
 }
 
 .size-step-btn:active {
-  background: #00d2d3;
-  color: #0e1017;
+  background: var(--pym-gold);
+  color: var(--pym-black);
 }
 
 .pill-btn {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--pym-cream);
+  border: 1px solid rgba(255, 184, 0, 0.28);
   border-radius: 999px;
   padding: 6px 11px;
-  font-size: 0.75rem;
+  font-size: 0.74rem;
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
@@ -181,27 +261,23 @@ html, body {
   touch-action: manipulation;
 }
 
-.pill-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
 .pill-btn.highlight-btn {
-  background: linear-gradient(135deg, #00d2d3, #0abde3);
+  background: linear-gradient(135deg, var(--pym-gold), var(--pym-gold-dark));
   border-color: transparent;
-  color: #0b131e;
+  color: var(--pym-black);
   font-weight: 700;
 }
 
 .pill-btn.active {
-  background: linear-gradient(135deg, #ff9f43, #ff6b6b);
+  background: linear-gradient(135deg, var(--pym-red), #b51724);
   border-color: transparent;
   color: #fff;
 }
 
 .pill-btn.game-btn {
-  background: rgba(251, 197, 49, 0.18);
-  border-color: rgba(251, 197, 49, 0.5);
-  color: #fbc531;
+  background: rgba(255, 184, 0, 0.16);
+  border-color: var(--pym-gold);
+  color: var(--pym-gold);
   padding: 5px 10px;
 }
 
@@ -224,19 +300,19 @@ html, body {
   position: relative;
   width: 170px;
   height: 115px;
-  border: 1px dashed rgba(0, 210, 211, 0.45);
+  border: 1.5px dashed rgba(255, 184, 0, 0.55);
   border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 210, 211, 0.05);
+  background: rgba(255, 184, 0, 0.06);
 }
 
 .scan-preview-img {
   max-width: 110px;
   max-height: 90px;
   border-radius: 6px;
-  opacity: 0.65;
+  opacity: 0.7;
   object-fit: contain;
 }
 
@@ -244,7 +320,7 @@ html, body {
   position: absolute;
   width: 20px;
   height: 20px;
-  border-color: #00d2d3;
+  border-color: var(--pym-gold);
   border-style: solid;
   border-width: 0;
 }
@@ -254,13 +330,13 @@ html, body {
 .corner.br { bottom: -2px; right: -2px; border-bottom-width: 3px; border-right-width: 3px; border-bottom-right-radius: 10px; }
 
 .scan-text {
-  background: rgba(14, 16, 23, 0.82);
+  background: var(--pym-charcoal);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--pym-border);
   padding: 7px 12px;
   border-radius: 12px;
   text-align: center;
-  font-size: 0.76rem;
+  font-size: 0.75rem;
   line-height: 1.35;
   max-width: 320px;
 }
@@ -269,7 +345,7 @@ html, body {
 .modal {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.82);
   backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
@@ -281,15 +357,15 @@ html, body {
 }
 
 .modal-card {
-  background: #171a26;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: #1a1614;
+  border: 1.5px solid var(--pym-border);
   border-radius: 18px;
   padding: 16px;
   max-width: 460px;
   width: 100%;
   max-height: 92dvh;
   overflow-y: auto;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
   display: flex;
   flex-direction: column;
   gap: 11px;
@@ -303,8 +379,10 @@ html, body {
 }
 
 .modal-header h2 {
-  font-size: 0.98rem;
-  color: #00d2d3;
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 1px;
+  font-size: 1.25rem;
+  color: var(--pym-gold);
 }
 
 .close-btn {
@@ -321,7 +399,7 @@ html, body {
 .modal-desc {
   font-size: 0.8rem;
   line-height: 1.4;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 248, 240, 0.88);
 }
 
 .marker-img-wrapper {
@@ -343,24 +421,24 @@ html, body {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  background: rgba(0, 210, 211, 0.08);
+  background: rgba(255, 184, 0, 0.08);
   padding: 12px;
   border-radius: 12px;
-  border: 1px dashed rgba(0, 210, 211, 0.55);
+  border: 1px dashed var(--pym-gold);
 }
 
 .file-input-visible {
   width: 100%;
-  color: #fff;
-  font-size: 0.82rem;
+  color: var(--pym-cream);
+  font-size: 0.8rem;
   cursor: pointer;
   touch-action: auto;
 }
 
 .file-input-visible::file-selector-button {
-  background: linear-gradient(135deg, #00d2d3, #0abde3);
+  background: linear-gradient(135deg, var(--pym-gold), var(--pym-gold-dark));
   border: none;
-  color: #0b131e;
+  color: var(--pym-black);
   font-weight: 700;
   padding: 8px 14px;
   border-radius: 999px;
@@ -379,13 +457,13 @@ html, body {
 .progress-fill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, #00d2d3, #4cd137);
+  background: linear-gradient(90deg, var(--pym-gold), var(--pym-red));
   transition: width 0.15s ease;
 }
 
 .compile-status {
-  font-size: 0.78rem;
-  color: #fbc531;
+  font-size: 0.76rem;
+  color: var(--pym-gold);
   font-weight: 600;
   text-align: center;
 }
@@ -403,7 +481,7 @@ html, body {
   padding: 9px 10px;
 }
 
-/* Panel inferior con Flechitas y Acciones */
+/* Panel inferior con Flechitas y Acciones estilo Pablo & María */
 .bottom-controls {
   display: flex;
   justify-content: space-between;
@@ -417,23 +495,23 @@ html, body {
 
 .dpad-container,
 .actions-container {
-  background: rgba(14, 16, 23, 0.82);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--pym-charcoal);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1.5px solid var(--pym-border);
   border-radius: 18px;
   padding: 10px 12px;
   pointer-events: auto;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.55);
 }
 
 .dpad-label {
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.8px;
-  color: rgba(255, 255, 255, 0.6);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 0.78rem;
+  letter-spacing: 1.4px;
+  color: var(--pym-gold);
   text-align: center;
-  margin-bottom: 6px;
+  margin-bottom: 5px;
 }
 
 /* Cruceta de Flechitas (Grid 3x3) */
@@ -450,9 +528,9 @@ html, body {
   width: 48px;
   height: 48px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
+  border: 1px solid rgba(255, 184, 0, 0.3);
+  background: rgba(255, 184, 0, 0.1);
+  color: var(--pym-cream);
   font-size: 1.2rem;
   display: flex;
   align-items: center;
@@ -463,15 +541,16 @@ html, body {
 
 .dpad-btn:active,
 .dpad-btn.pressed {
-  background: linear-gradient(135deg, #00d2d3, #0abde3);
-  border-color: #48dbfb;
+  background: linear-gradient(135deg, var(--pym-gold), var(--pym-gold-dark));
+  border-color: #fff;
+  color: var(--pym-black);
   transform: scale(0.92);
-  box-shadow: 0 0 14px rgba(10, 189, 227, 0.6);
+  box-shadow: 0 0 16px rgba(255, 184, 0, 0.65);
 }
 
 .dpad-btn.up    { grid-column: 2; grid-row: 1; }
 .dpad-btn.left  { grid-column: 1; grid-row: 2; }
-.dpad-center    { grid-column: 2; grid-row: 2; font-size: 1.15rem; cursor: pointer; }
+.dpad-center    { grid-column: 2; grid-row: 2; font-size: 1.3rem; cursor: pointer; }
 .dpad-btn.right { grid-column: 3; grid-row: 2; }
 .dpad-btn.down  { grid-column: 2; grid-row: 3; }
 
@@ -492,9 +571,9 @@ html, body {
   height: 56px;
   padding: 4px 6px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  border: 1px solid rgba(255, 184, 0, 0.24);
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--pym-cream);
   font-size: 0.68rem;
   font-weight: 600;
   cursor: pointer;
@@ -507,8 +586,9 @@ html, body {
 
 .action-btn:active,
 .action-btn.active-mode {
-  background: linear-gradient(135deg, #ff9f43, #ee5253);
+  background: linear-gradient(135deg, var(--pym-red), var(--pym-gold));
   border-color: transparent;
+  color: #fff;
   transform: scale(0.93);
 }
 
@@ -520,17 +600,16 @@ html, body {
   }
   .top-bar {
     padding: 7px 10px;
-    gap: 6px;
   }
   .brand h1 {
-    font-size: 0.84rem;
+    font-size: 1.05rem;
   }
   #status-text {
-    font-size: 0.68rem;
+    font-size: 0.65rem;
   }
   .pill-btn {
     padding: 5px 9px;
-    font-size: 0.7rem;
+    font-size: 0.68rem;
   }
   .bottom-controls {
     gap: 6px;
@@ -541,7 +620,7 @@ html, body {
     border-radius: 15px;
   }
   .dpad-label {
-    font-size: 0.54rem;
+    font-size: 0.68rem;
     margin-bottom: 4px;
   }
   .dpad {
@@ -562,7 +641,7 @@ html, body {
     min-width: 46px;
     width: 48px;
     height: 46px;
-    font-size: 0.58rem;
+    font-size: 0.56rem;
     padding: 3px 2px;
     border-radius: 10px;
   }
