@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>Pablo y María — Realidad Aumentada</title>
-  <link rel="stylesheet" href="style.css?v=6" />
+  <link rel="stylesheet" href="style.css?v=8" />
   <script type="importmap">
     {
       "imports": {
@@ -20,7 +20,7 @@
   </script>
 </head>
 <body>
-  <!-- Contenedor donde MindAR y Three.js inyectan el video y el canvas con rastreo 6DoF -->
+  <!-- Contenedor donde MindAR y Three.js inyectan el video y el canvas -->
   <div id="ar-container"></div>
 
   <!-- Capa de Interfaz de Usuario adaptada a 100dvh en celulares -->
@@ -45,12 +45,23 @@
         <button id="btn-show-marker" class="pill-btn highlight-btn">
           🖼️ Cambiar Imagen
         </button>
-        <button id="btn-tilt-axis" class="pill-btn" title="Ajustar inclinación del plano sobre la mesa">
+        <button id="btn-relock" class="pill-btn">
+          🔄 Re-escanear
+        </button>
+        <button id="btn-tilt-axis" class="pill-btn">
           📐 Eje Plano
         </button>
         <button id="btn-pin-mode" class="pill-btn">
           🪑 Mesa 3D
         </button>
+      </div>
+
+      <!-- Barra directa para ajustar el tamaño del muñeco en tiempo real -->
+      <div class="size-control-row">
+        <button id="btn-size-down" class="size-step-btn" aria-label="Achicar">➖</button>
+        <span class="size-label">Tamaño:</span>
+        <input type="range" id="size-slider" min="0.02" max="0.22" step="0.005" value="0.06" />
+        <button id="btn-size-up" class="size-step-btn" aria-label="Agrandar">➕</button>
       </div>
     </header>
 
@@ -64,8 +75,8 @@
         <img id="scan-preview-img" src="./models/card.png" alt="Marcador" class="scan-preview-img" />
       </div>
       <p class="scan-text">
-        Apunta la cámara a esta imagen en la mesa<br/>
-        <small>(O toca <strong>"🪑 Mesa 3D"</strong> arriba para ver sin marcador)</small>
+        Apunta la cámara a esta imagen para desplegar y fijar el muñeco<br/>
+        <small>(Una vez detectado quedará fijo aunque muevas la cámara)</small>
       </p>
     </div>
 
@@ -77,7 +88,7 @@
           <button id="btn-close-modal" class="close-btn">✕</button>
         </div>
         <p class="modal-desc">
-          Elige cualquier foto o logo desde tu galería. Se pondrá sobre la mesa y servirá como marcador de Realidad Aumentada:
+          Elige cualquier foto o logo desde tu galería. Cuando la cámara la vea una vez, desplegará y dejará fijo al personaje en tu pantalla:
         </p>
         <div class="marker-img-wrapper">
           <img id="modal-marker-img" src="./models/card.png" alt="Marcador AR" />
@@ -138,9 +149,9 @@
             <span class="emoji">⚡</span>
             <span id="speed-label">Caminar</span>
           </button>
-          <button class="action-btn" id="btn-scale">
-            <span class="emoji">🔍</span>
-            <span>Tamaño</span>
+          <button class="action-btn" data-action="Punch">
+            <span class="emoji">🥊</span>
+            <span>Golpe</span>
           </button>
         </div>
       </div>
@@ -148,6 +159,6 @@
     </footer>
   </div>
 
-  <script type="module" src="app.js?v=6"></script>
+  <script type="module" src="app.js?v=8"></script>
 </body>
 </html>

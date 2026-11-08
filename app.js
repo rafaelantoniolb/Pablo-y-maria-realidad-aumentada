@@ -13,11 +13,13 @@ const markerModal = document.getElementById('marker-modal');
 const scoreVal = document.getElementById('score-val');
 const btnPinMode = document.getElementById('btn-pin-mode');
 const btnTiltAxis = document.getElementById('btn-tilt-axis');
+const btnRelock = document.getElementById('btn-relock');
 const scanPreviewImg = document.getElementById('scan-preview-img');
 const modalMarkerImg = document.getElementById('modal-marker-img');
 const compileStatus = document.getElementById('compile-status');
 const progressBar = document.getElementById('compile-progress-bar');
 const progressFill = document.getElementById('compile-progress-fill');
+const sizeSlider = document.getElementById('size-slider');
 
 let currentMindTargetUrl = './models/card.mind';
 let currentMarkerImageUrl = './models/card.png';
@@ -27,13 +29,18 @@ let mindarThree = null;
 let renderer, scene, camera, anchor, orbitControls;
 const clock = new THREE.Clock();
 
+// Nodo auxiliar dentro del anchor para leer dónde apareció el marcador
+const poseTracker = new THREE.Group();
+const trackedPos = new THREE.Vector3();
+const trackedQuat = new THREE.Quaternion();
+const trackedScale = new THREE.Vector3();
+
+// Grupo principal de la mesa y muñeco (vive directo en scene para NO desaparecer al mover la cámara)
 const tableSurfaceGroup = new THREE.Group();
 const characterGroup = new THREE.Group();
 let restaurantTableMeshGroup = null;
 let cardMeshOnTable = null;
 
-let targetRing = null;
-let platformGrid = null;
 let mixer = null;
 const actions = {};
 let activeAction = null;
@@ -44,8 +51,11 @@ let isTurbo = false;
 let isStandalone3DMode = false;
 let isMarkerVisible = false;
 
-// Ángulos de inclinación del plano sobre el eje X cuando está en Cámara AR:
-// 0.22 rad (~12°) mantiene la malla acostada en el eje X/Z horizontal y al robot parado de frente
+// Control de fijado automático una vez detectado el marcador
+let hasBeenFoundOnce = false;
+let isLockedOnScreen = false;
+let stabilizeFrames = 0;
+
 const arTiltPresets = [
   { angle: 0.22, label: '📐 Plano: Horizontal' },
   { angle: 0.55, label: '📐 Plano: 35°' },
@@ -53,10 +63,9 @@ const arTiltPresets = [
 ];
 let tiltIndex = 0;
 
-// Escalas proporcionadas para celulares
-const scales = [0.12, 0.17, 0.24];
-let scaleIndex = 1;
-const TABLE_LIMIT = 1.05;
+// Tamaño inicial miniatura sobre la mesa (0.06) y regulable entre 0.02 y 0.22
+let currentScale = 0.06;
+const TABLE_LIMIT = 0.95;
 
 let minigameActive = false;
 let collectibleMesh = null;
@@ -72,7 +81,7 @@ async function startApp() {
 }
 
 // ==========================================
-// 3A. MODO CÁMARA AR REAL (MINDAR 6DoF)
+// 3A. MODO CÁMARA AR REAL CON AUTO-FIJADO AL ENCONTRAR
 // ==========================================
 async function initMindARCameraMode() {
   try {
@@ -82,6 +91,10 @@ async function initMindARCameraMode() {
     }
 
     isStandalone3DMode = false;
+    isMarkerVisible = false;
+    hasBeenFoundOnce = false;
+    isLockedOnScreen = false;
+    stabilizeFrames = 0;
     arContainer.innerHTML = '';
 
     mindarThree = new MindARThree({
@@ -103,38 +116,75 @@ async function initMindARCameraMode() {
 
     setupLights(scene);
 
+    // El nodo poseTracker va dentro del anchor de MindAR para saber dónde se detectó la imagen
     anchor = mindarThree.addAnchor(0);
-    // Colocar el plano acostado en el eje X/Z (sin los 90° que lo ponían vertical en el eje Y)
-    tableSurfaceGroup.position.set(0, -0.15, 0);
-    tableSurfaceGroup.rotation.set(arTiltPresets[tiltIndex].angle, 0, 0);
+    poseTracker.position.set(0, -0.1, 0);
+    anchor.group.add(poseTracker);
+
+    // Pero tableSurfaceGroup se agrega directo a scene para que NUNCA se apague cuando muevas la cámara
     if (restaurantTableMeshGroup) restaurantTableMeshGroup.visible = false;
-    anchor.group.add(tableSurfaceGroup);
+    tableSurfaceGroup.visible = false;
+    scene.add(tableSurfaceGroup);
 
     anchor.onTargetFound = () => {
       isMarkerVisible = true;
       scanGuide.classList.add('hidden');
-      statusText.textContent = '🟢 ¡Imagen Detectada! Usa las flechitas para moverte';
+
+      if (!hasBeenFoundOnce) {
+        hasBeenFoundOnce = true;
+        tableSurfaceGroup.visible = true;
+        triggerOneShotAnimation('Wave');
+      }
+
+      statusText.textContent = '🔒 ¡Objeto Fijado! Ya puedes mover la cámara sin que se pierda';
       statusText.style.color = '#4cd137';
-      triggerOneShotAnimation('Wave');
     };
 
     anchor.onTargetLost = () => {
       isMarkerVisible = false;
-      scanGuide.classList.remove('hidden');
-      statusText.textContent = '📷 Apunta la cámara a la imagen (o toca "🪑 Mesa 3D")';
-      statusText.style.color = '#48dbfb';
+      // Si ya fue encontrado al menos una vez, SE QUEDA VISIBLE Y FIJO en pantalla
+      if (hasBeenFoundOnce) {
+        isLockedOnScreen = true;
+        tableSurfaceGroup.visible = true;
+        scanGuide.classList.add('hidden');
+        statusText.textContent = '🔒 Muñeco Fijo en pantalla — Usa las flechas (o "🔄 Re-escanear")';
+        statusText.style.color = '#4cd137';
+      } else {
+        scanGuide.classList.remove('hidden');
+        statusText.textContent = '📷 Apunta a la imagen para desplegar el muñeco';
+        statusText.style.color = '#48dbfb';
+      }
     };
 
     await mindarThree.start();
     scanGuide.classList.remove('hidden');
     btnPinMode.textContent = '🪑 Mesa 3D';
     btnPinMode.classList.remove('active');
-    statusText.textContent = '📷 Cámara AR activa — Apunta a la imagen marcador';
+    statusText.textContent = '📷 Apunta a la imagen marcador para desplegar el muñeco';
     statusText.style.color = '#48dbfb';
 
     renderer.setAnimationLoop(() => {
       const delta = clock.getDelta();
       if (mixer) mixer.update(delta);
+
+      // Capturar la posición del marcador durante los primeros fotogramas al encontrarlo y luego dejarlo fijo
+      if (isMarkerVisible && !isLockedOnScreen) {
+        anchor.group.updateMatrixWorld(true);
+        poseTracker.updateWorldMatrix(true, false);
+        poseTracker.matrixWorld.decompose(trackedPos, trackedQuat, trackedScale);
+
+        tableSurfaceGroup.position.copy(trackedPos);
+        tableSurfaceGroup.scale.copy(trackedScale);
+        tableSurfaceGroup.rotation.set(arTiltPresets[tiltIndex].angle, 0, 0);
+
+        stabilizeFrames++;
+        // Tras ~15 fotogramas (~0.25 seg) de haber encontrado el objeto, queda anclado y fijo
+        if (stabilizeFrames > 15) {
+          isLockedOnScreen = true;
+          statusText.textContent = '🔒 ¡Muñeco Fijado! Mueve la cámara o usa las flechas libremente';
+        }
+      }
+
       updateMovementOnTable(delta);
       renderer.render(scene, camera);
     });
@@ -143,6 +193,26 @@ async function initMindARCameraMode() {
     initInteractive6DoFTableSimulator(
       '🟢 Mesa 3D Activa — Gira con el dedo y mueve con las flechas'
     );
+  }
+}
+
+// Botón para volver a buscar el marcador si el usuario quiere re-ubicarlo
+function relockToMarker() {
+  if (isStandalone3DMode) return;
+  hasBeenFoundOnce = false;
+  isLockedOnScreen = false;
+  stabilizeFrames = 0;
+  characterGroup.position.set(0, 0, 0);
+
+  if (isMarkerVisible) {
+    hasBeenFoundOnce = true;
+    tableSurfaceGroup.visible = true;
+    statusText.textContent = '🔒 ¡Re-ubicado y Fijado!';
+  } else {
+    tableSurfaceGroup.visible = false;
+    scanGuide.classList.remove('hidden');
+    statusText.textContent = '📷 Apunta de nuevo a la imagen para fijar el muñeco';
+    statusText.style.color = '#48dbfb';
   }
 }
 
@@ -163,9 +233,9 @@ function initInteractive6DoFTableSimulator(customMessage) {
   scene.background = new THREE.Color(0x141824);
 
   const isPortrait = window.innerWidth < window.innerHeight;
-  camera = new THREE.PerspectiveCamera(isPortrait ? 55 : 48, window.innerWidth / window.innerHeight, 0.1, 100);
-  camera.position.set(0, isPortrait ? 2.6 : 2.1, isPortrait ? 3.8 : 2.8);
-  camera.lookAt(0, 0.2, 0);
+  camera = new THREE.PerspectiveCamera(isPortrait ? 50 : 45, window.innerWidth / window.innerHeight, 0.1, 100);
+  camera.position.set(0, isPortrait ? 1.8 : 1.5, isPortrait ? 2.6 : 2.1);
+  camera.lookAt(0, 0.1, 0);
 
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -178,13 +248,15 @@ function initInteractive6DoFTableSimulator(customMessage) {
   orbitControls.enableDamping = true;
   orbitControls.dampingFactor = 0.06;
   orbitControls.maxPolarAngle = Math.PI / 2 - 0.05;
-  orbitControls.minDistance = 1.2;
-  orbitControls.maxDistance = 6.5;
-  orbitControls.target.set(0, 0.25, 0);
+  orbitControls.minDistance = 0.8;
+  orbitControls.maxDistance = 5.5;
+  orbitControls.target.set(0, 0.1, 0);
 
   setupLights(scene);
 
+  tableSurfaceGroup.visible = true;
   tableSurfaceGroup.position.set(0, 0, 0);
+  tableSurfaceGroup.scale.set(1, 1, 1);
   tableSurfaceGroup.rotation.set(0, 0, 0);
   if (restaurantTableMeshGroup) restaurantTableMeshGroup.visible = true;
   scene.add(tableSurfaceGroup);
@@ -218,12 +290,19 @@ function setupLights(targetScene) {
 }
 
 // ==========================================
-// 4. CONSTRUIR LA MESA DEL RESTAURANTE Y SUPERFICIE AR
+// 4. CONSTRUIR LA MESA (SIN RAYAS NI CUADRÍCULA DEBAJO DEL MUÑECO)
 // ==========================================
 function buildTableSurfaceElements() {
+  const shadowGeo = new THREE.PlaneGeometry(3, 3);
+  const shadowMat = new THREE.ShadowMaterial({ opacity: 0.35 });
+  const shadowPlane = new THREE.Mesh(shadowGeo, shadowMat);
+  shadowPlane.rotation.x = -Math.PI / 2;
+  shadowPlane.receiveShadow = true;
+  tableSurfaceGroup.add(shadowPlane);
+
   restaurantTableMeshGroup = new THREE.Group();
 
-  const woodGeo = new THREE.BoxGeometry(2.4, 0.12, 2.4);
+  const woodGeo = new THREE.BoxGeometry(2.2, 0.12, 2.2);
   const woodMat = new THREE.MeshStandardMaterial({ color: 0x6b4226, roughness: 0.65 });
   const woodTable = new THREE.Mesh(woodGeo, woodMat);
   woodTable.position.y = -0.065;
@@ -233,38 +312,32 @@ function buildTableSurfaceElements() {
   const texLoader = new THREE.TextureLoader();
   const cardTexture = texLoader.load(currentMarkerImageUrl);
   cardTexture.colorSpace = THREE.SRGBColorSpace;
-  const cardGeo = new THREE.PlaneGeometry(1.15, 0.82);
+  const cardGeo = new THREE.PlaneGeometry(1.1, 0.78);
   const cardMat = new THREE.MeshStandardMaterial({ map: cardTexture, roughness: 0.7 });
   cardMeshOnTable = new THREE.Mesh(cardGeo, cardMat);
   cardMeshOnTable.rotation.x = -Math.PI / 2;
-  cardMeshOnTable.position.y = 0.003;
+  cardMeshOnTable.position.y = 0.002;
   cardMeshOnTable.receiveShadow = true;
   restaurantTableMeshGroup.add(cardMeshOnTable);
 
-  const plateGeo = new THREE.CylinderGeometry(0.28, 0.22, 0.03, 32);
+  const plateGeo = new THREE.CylinderGeometry(0.24, 0.18, 0.025, 32);
   const plateMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 });
   const plate = new THREE.Mesh(plateGeo, plateMat);
-  plate.position.set(-0.72, 0.02, -0.7);
+  plate.position.set(-0.65, 0.015, -0.6);
   plate.castShadow = true;
   plate.receiveShadow = true;
   restaurantTableMeshGroup.add(plate);
 
   tableSurfaceGroup.add(restaurantTableMeshGroup);
 
-  platformGrid = new THREE.GridHelper(2.2, 10, 0x00d2d3, 0xffffff);
-  platformGrid.material.opacity = 0.35;
-  platformGrid.material.transparent = true;
-  platformGrid.position.y = 0.005;
-  tableSurfaceGroup.add(platformGrid);
-
-  const ringGeo = new THREE.RingGeometry(0.12, 0.16, 32);
-  const ringMat = new THREE.MeshBasicMaterial({ color: 0x00d2d3, side: THREE.DoubleSide });
-  targetRing = new THREE.Mesh(ringGeo, ringMat);
-  targetRing.rotation.x = -Math.PI / 2;
-  targetRing.position.y = 0.012;
-  tableSurfaceGroup.add(targetRing);
-
+  characterGroup.scale.set(currentScale, currentScale, currentScale);
   tableSurfaceGroup.add(characterGroup);
+}
+
+function setCharacterScale(newScale) {
+  currentScale = THREE.MathUtils.clamp(parseFloat(newScale), 0.02, 0.22);
+  characterGroup.scale.set(currentScale, currentScale, currentScale);
+  if (sizeSlider) sizeSlider.value = currentScale;
 }
 
 // ==========================================
@@ -313,14 +386,14 @@ async function handleCustomMarkerUpload(event) {
       cardMeshOnTable.material.map = canvasTex;
       cardMeshOnTable.material.needsUpdate = true;
       const ratio = w / h;
-      const baseH = 0.9;
-      const baseW = THREE.MathUtils.clamp(baseH * ratio, 0.6, 1.5);
+      const baseH = 0.85;
+      const baseW = THREE.MathUtils.clamp(baseH * ratio, 0.55, 1.4);
       cardMeshOnTable.geometry.dispose();
       cardMeshOnTable.geometry = new THREE.PlaneGeometry(baseW, baseH);
     }
 
     progressFill.style.width = '40%';
-    compileStatus.textContent = '✅ ¡Foto puesta en la mesa! Generando puntos AR...';
+    compileStatus.textContent = '✅ ¡Foto lista! Generando puntos AR...';
 
     const smallImg = await loadUrlAsImage(resizedDataUrl);
     const mindModule = await import('mindar-image');
@@ -400,8 +473,6 @@ function loadCharacterModel() {
       './models/RobotExpressive.glb',
       (gltf) => {
         const model = gltf.scene;
-        const s = scales[scaleIndex];
-        model.scale.set(s, s, s);
 
         model.traverse((child) => {
           if (child.isMesh) {
@@ -411,6 +482,7 @@ function loadCharacterModel() {
         });
 
         characterGroup.add(model);
+        setCharacterScale(currentScale);
 
         mixer = new THREE.AnimationMixer(model);
         gltf.animations.forEach((clip) => {
@@ -473,7 +545,7 @@ function updateMovementOnTable(delta) {
     dx /= len;
     dz /= len;
 
-    const speed = isTurbo ? 1.35 : 0.75;
+    const speed = isTurbo ? 1.1 : 0.55;
     characterGroup.position.x = THREE.MathUtils.clamp(
       characterGroup.position.x + dx * speed * delta,
       -TABLE_LIMIT,
@@ -500,18 +572,13 @@ function updateMovementOnTable(delta) {
     }
   }
 
-  if (targetRing) {
-    targetRing.position.x = characterGroup.position.x;
-    targetRing.position.z = characterGroup.position.z;
-  }
-
   if (minigameActive && collectibleMesh) {
     collectibleMesh.rotation.y += delta * 3;
     const dist = Math.hypot(
       characterGroup.position.x - collectibleMesh.position.x,
       characterGroup.position.z - collectibleMesh.position.z
     );
-    if (dist < 0.24) {
+    if (dist < 0.2) {
       score++;
       scoreVal.textContent = score;
       triggerOneShotAnimation('ThumbsUp');
@@ -547,7 +614,7 @@ function toggleMinigame() {
   if (minigameActive) {
     btn.classList.add('active');
     if (!collectibleMesh) {
-      const geo = new THREE.OctahedronGeometry(0.11, 0);
+      const geo = new THREE.OctahedronGeometry(0.07, 0);
       const mat = new THREE.MeshStandardMaterial({
         color: 0xfbc531,
         emissive: 0xe1b12c,
@@ -569,9 +636,9 @@ function toggleMinigame() {
 
 function spawnCollectible() {
   if (!collectibleMesh) return;
-  const rx = (Math.random() * 2 - 1) * (TABLE_LIMIT * 0.8);
-  const rz = (Math.random() * 2 - 1) * (TABLE_LIMIT * 0.8);
-  collectibleMesh.position.set(rx, 0.14, rz);
+  const rx = (Math.random() * 2 - 1) * (TABLE_LIMIT * 0.75);
+  const rz = (Math.random() * 2 - 1) * (TABLE_LIMIT * 0.75);
+  collectibleMesh.position.set(rx, 0.08, rz);
 }
 
 function setupUIEvents() {
@@ -617,12 +684,14 @@ function setupUIEvents() {
     speedLabel.textContent = isTurbo ? 'Correr' : 'Caminar';
   });
 
-  document.getElementById('btn-scale').addEventListener('click', () => {
-    scaleIndex = (scaleIndex + 1) % scales.length;
-    const s = scales[scaleIndex];
-    if (characterGroup.children[0]) {
-      characterGroup.children[0].scale.set(s, s, s);
-    }
+  sizeSlider.addEventListener('input', (e) => {
+    setCharacterScale(e.target.value);
+  });
+  document.getElementById('btn-size-down').addEventListener('click', () => {
+    setCharacterScale(currentScale - 0.015);
+  });
+  document.getElementById('btn-size-up').addEventListener('click', () => {
+    setCharacterScale(currentScale + 0.015);
   });
 
   document.getElementById('btn-reset-pos').addEventListener('click', () => {
@@ -650,6 +719,7 @@ function setupUIEvents() {
 
   btnPinMode.addEventListener('click', togglePinMode);
   btnTiltAxis.addEventListener('click', cyclePlaneTilt);
+  btnRelock.addEventListener('click', relockToMarker);
   document.getElementById('btn-minigame').addEventListener('click', toggleMinigame);
 
   window.addEventListener('resize', () => {
