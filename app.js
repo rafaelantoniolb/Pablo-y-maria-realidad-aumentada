@@ -65,7 +65,20 @@ let tiltIndex = 0;
 
 // Tamaño inicial miniatura sobre la mesa (0.06) y regulable entre 0.02 y 0.22
 let currentScale = 0.06;
-const TABLE_LIMIT = 0.95;
+const TABLE_LIMIT = 1.25;
+
+// Calcula el multiplicador de perspectiva según qué tan lejos (z negativo) o cerca (z positivo) esté en la mesa
+function getDepthPerspectiveMultiplier(zPos) {
+  const normalizedDepth = THREE.MathUtils.clamp(zPos / TABLE_LIMIT, -1, 1);
+  // En el fondo (z = -TABLE_LIMIT) se reduce a ~0.48x; al frente (z = +TABLE_LIMIT) crece a ~1.95x
+  return Math.pow(2.0, normalizedDepth);
+}
+
+function applyCharacterPerspectiveScale() {
+  const depthMult = getDepthPerspectiveMultiplier(characterGroup.position.z);
+  const effectiveScale = currentScale * depthMult;
+  characterGroup.scale.set(effectiveScale, effectiveScale, effectiveScale);
+}
 
 let minigameActive = false;
 let collectibleMesh = null;
@@ -203,6 +216,7 @@ function relockToMarker() {
   isLockedOnScreen = false;
   stabilizeFrames = 0;
   characterGroup.position.set(0, 0, 0);
+  applyCharacterPerspectiveScale();
 
   if (isMarkerVisible) {
     hasBeenFoundOnce = true;
@@ -336,8 +350,8 @@ function buildTableSurfaceElements() {
 
 function setCharacterScale(newScale) {
   currentScale = THREE.MathUtils.clamp(parseFloat(newScale), 0.02, 0.22);
-  characterGroup.scale.set(currentScale, currentScale, currentScale);
   if (sizeSlider) sizeSlider.value = currentScale;
+  applyCharacterPerspectiveScale();
 }
 
 // ==========================================
@@ -545,7 +559,11 @@ function updateMovementOnTable(delta) {
     dx /= len;
     dz /= len;
 
-    const speed = isTurbo ? 1.1 : 0.55;
+    // Ajustar velocidad visual según la profundidad para que los pasos se sientan naturales al alejarse/acercarse
+    const depthMult = getDepthPerspectiveMultiplier(characterGroup.position.z);
+    const baseSpeed = isTurbo ? 1.15 : 0.6;
+    const speed = baseSpeed * THREE.MathUtils.clamp(depthMult, 0.6, 1.5);
+
     characterGroup.position.x = THREE.MathUtils.clamp(
       characterGroup.position.x + dx * speed * delta,
       -TABLE_LIMIT,
@@ -556,6 +574,9 @@ function updateMovementOnTable(delta) {
       -TABLE_LIMIT,
       TABLE_LIMIT
     );
+
+    // Actualizar el tamaño aparente según qué tan lejos o cerca esté en la mesa
+    applyCharacterPerspectiveScale();
 
     const targetAngle = Math.atan2(dx, dz);
     let diff = targetAngle - characterGroup.rotation.y;
@@ -638,7 +659,9 @@ function spawnCollectible() {
   if (!collectibleMesh) return;
   const rx = (Math.random() * 2 - 1) * (TABLE_LIMIT * 0.75);
   const rz = (Math.random() * 2 - 1) * (TABLE_LIMIT * 0.75);
-  collectibleMesh.position.set(rx, 0.08, rz);
+  const dMult = getDepthPerspectiveMultiplier(rz);
+  collectibleMesh.position.set(rx, 0.08 * dMult, rz);
+  collectibleMesh.scale.set(dMult, dMult, dMult);
 }
 
 function setupUIEvents() {
@@ -697,6 +720,7 @@ function setupUIEvents() {
   document.getElementById('btn-reset-pos').addEventListener('click', () => {
     characterGroup.position.set(0, 0, 0);
     characterGroup.rotation.y = 0;
+    applyCharacterPerspectiveScale();
     triggerOneShotAnimation('Wave');
   });
 
