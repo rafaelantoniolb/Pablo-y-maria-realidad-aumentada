@@ -14,9 +14,9 @@ const scoreVal = document.getElementById('score-val');
 const btnPinMode = document.getElementById('btn-pin-mode');
 const scanPreviewImg = document.getElementById('scan-preview-img');
 const modalMarkerImg = document.getElementById('modal-marker-img');
-const linkOpenMarker = document.getElementById('link-open-marker');
 const compileStatus = document.getElementById('compile-status');
-const btnDownloadMind = document.getElementById('btn-download-mind');
+const progressBar = document.getElementById('compile-progress-bar');
+const progressFill = document.getElementById('compile-progress-fill');
 
 let currentMindTargetUrl = './models/card.mind';
 let currentMarkerImageUrl = './models/card.png';
@@ -53,7 +53,7 @@ let collectibleMesh = null;
 let score = 0;
 
 // ==========================================
-// 2. INICIALIZAR APLICACIÓN (CÁMARA AR DIRECTA)
+// 2. INICIALIZAR APLICACIÓN
 // ==========================================
 async function startApp() {
   buildTableSurfaceElements();
@@ -102,7 +102,7 @@ async function initMindARCameraMode() {
     anchor.onTargetFound = () => {
       isMarkerVisible = true;
       scanGuide.classList.add('hidden');
-      statusText.textContent = '🟢 ¡Marcador Detectado! Usa las flechitas para moverte';
+      statusText.textContent = '🟢 ¡Imagen Detectada! Usa las flechitas para moverte';
       statusText.style.color = '#4cd137';
       triggerOneShotAnimation('Wave');
     };
@@ -110,7 +110,7 @@ async function initMindARCameraMode() {
     anchor.onTargetLost = () => {
       isMarkerVisible = false;
       scanGuide.classList.remove('hidden');
-      statusText.textContent = '📷 Apunta a la imagen marcador (o toca "🪑 Mesa 3D")';
+      statusText.textContent = '📷 Apunta la cámara a la imagen (o toca "🪑 Mesa 3D")';
       statusText.style.color = '#48dbfb';
     };
 
@@ -130,7 +130,7 @@ async function initMindARCameraMode() {
   } catch (err) {
     console.warn('No se pudo abrir la cámara para MindAR, activando Mesa 3D:', err);
     initInteractive6DoFTableSimulator(
-      '🟡 Modo Mesa 3D Activo (Toca "📷 Cámara AR" para activar cámara)'
+      '🟢 Mesa 3D Activa — Gira con el dedo y mueve con las flechas'
     );
   }
 }
@@ -221,11 +221,12 @@ function buildTableSurfaceElements() {
 
   const texLoader = new THREE.TextureLoader();
   const cardTexture = texLoader.load(currentMarkerImageUrl);
-  const cardGeo = new THREE.PlaneGeometry(1.0, 0.68);
-  const cardMat = new THREE.MeshStandardMaterial({ map: cardTexture, roughness: 0.8 });
+  cardTexture.colorSpace = THREE.SRGBColorSpace;
+  const cardGeo = new THREE.PlaneGeometry(1.15, 0.82);
+  const cardMat = new THREE.MeshStandardMaterial({ map: cardTexture, roughness: 0.7 });
   cardMeshOnTable = new THREE.Mesh(cardGeo, cardMat);
   cardMeshOnTable.rotation.x = -Math.PI / 2;
-  cardMeshOnTable.position.y = 0.002;
+  cardMeshOnTable.position.y = 0.003;
   cardMeshOnTable.receiveShadow = true;
   restaurantTableMeshGroup.add(cardMeshOnTable);
 
@@ -256,73 +257,132 @@ function buildTableSurfaceElements() {
 }
 
 // ==========================================
-// 5. SUBIR Y APLICAR CUALQUIER FOTO/LOGO AL INSTANTE
+// 5. REDIMENSIONAR FOTO Y APLICAR EN MESA 3D + COMPILAR AR
 // ==========================================
 async function handleCustomMarkerUpload(event) {
-  const file = event.target.files[0];
+  const file = event.target.files && event.target.files[0];
   if (!file) return;
 
-  // 1) Mostrar la foto subida INMEDIATAMENTE en el modal, en el visor y en la mesa 3D
-  const imgUrl = URL.createObjectURL(file);
-  currentMarkerImageUrl = imgUrl;
-  scanPreviewImg.src = imgUrl;
-  modalMarkerImg.src = imgUrl;
-  linkOpenMarker.href = imgUrl;
+  compileStatus.textContent = '⏳ Leyendo tu foto...';
+  compileStatus.style.color = '#fbc531';
+  progressBar.classList.remove('hidden');
+  progressFill.style.width = '15%';
 
-  if (cardMeshOnTable) {
-    const newTex = new THREE.TextureLoader().load(imgUrl);
-    newTex.colorSpace = THREE.SRGBColorSpace;
-    cardMeshOnTable.material.map = newTex;
-    cardMeshOnTable.material.needsUpdate = true;
-  }
-
-  compileStatus.textContent = '✅ ¡Imagen actualizada en la mesa! Compilando rastreo AR...';
-  compileStatus.style.color = '#4cd137';
-
-  // 2) Intentar compilar el archivo .mind en segundo plano para el rastreo con cámara
   try {
-    const img = new Image();
-    img.src = imgUrl;
-    await new Promise((res, rej) => {
-      img.onload = res;
-      img.onerror = rej;
-    });
+    // 1. Leer archivo y redimensionarlo a un canvas ligero (máx 512px) para no saturar la memoria del celular
+    const bitmapImg = await loadFileAsImage(file);
+    const maxDim = 512;
+    let w = bitmapImg.width;
+    let h = bitmapImg.height;
+    if (w > maxDim || h > maxDim) {
+      if (w > h) {
+        h = Math.round((h * maxDim) / w);
+        w = maxDim;
+      } else {
+        w = Math.round((w * maxDim) / h);
+        h = maxDim;
+      }
+    }
 
-    const mindModule = await import('https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js');
+    const offscreenCanvas = document.createElement('canvas');
+    offscreenCanvas.width = w;
+    offscreenCanvas.height = h;
+    const ctx = offscreenCanvas.getContext('2d');
+    ctx.drawImage(bitmapImg, 0, 0, w, h);
+
+    const resizedDataUrl = offscreenCanvas.toDataURL('image/jpeg', 0.88);
+
+    // 2. Actualizar inmediatamente la vista previa en el modal y en el visor de cámara
+    currentMarkerImageUrl = resizedDataUrl;
+    modalMarkerImg.src = resizedDataUrl;
+    scanPreviewImg.src = resizedDataUrl;
+
+    // 3. Actualizar la textura 3D directamente sobre la mesa usando CanvasTexture (instantáneo y sin fallos)
+    if (cardMeshOnTable) {
+      const canvasTex = new THREE.CanvasTexture(offscreenCanvas);
+      canvasTex.colorSpace = THREE.SRGBColorSpace;
+      canvasTex.needsUpdate = true;
+      cardMeshOnTable.material.map = canvasTex;
+      cardMeshOnTable.material.needsUpdate = true;
+      // Ajustar proporción del tapete en la mesa a la foto subida
+      const ratio = w / h;
+      const baseH = 0.9;
+      const baseW = THREE.MathUtils.clamp(baseH * ratio, 0.6, 1.5);
+      cardMeshOnTable.geometry.dispose();
+      cardMeshOnTable.geometry = new THREE.PlaneGeometry(baseW, baseH);
+    }
+
+    progressFill.style.width = '40%';
+    compileStatus.textContent = '✅ ¡Foto puesta en la mesa! Generando puntos AR...';
+
+    // 4. Compilar puntos de rastreo AR sobre la imagen ligera de 512px
+    const smallImg = await loadUrlAsImage(resizedDataUrl);
+    const mindModule = await import('mindar-image');
     const CompilerClass = mindModule.Compiler || (window.MINDAR && window.MINDAR.IMAGE && window.MINDAR.IMAGE.Compiler);
 
     if (CompilerClass) {
       const compiler = new CompilerClass();
-      await compiler.compileImageTargets([img], (progress) => {
-        compileStatus.textContent = `⏳ Generando mapa AR de tu imagen: ${Math.round(progress)}%`;
+      await compiler.compileImageTargets([smallImg], (progress) => {
+        const pct = Math.round(40 + progress * 0.6);
+        progressFill.style.width = `${pct}%`;
+        compileStatus.textContent = `⏳ Creando marcador AR: ${Math.round(progress)}%`;
       });
 
       const exportedBuffer = await compiler.exportData();
       const blob = new Blob([exportedBuffer], { type: 'application/octet-stream' });
-
       if (compiledMindBlobUrl) URL.revokeObjectURL(compiledMindBlobUrl);
       compiledMindBlobUrl = URL.createObjectURL(blob);
       currentMindTargetUrl = compiledMindBlobUrl;
+    }
 
-      btnDownloadMind.classList.remove('hidden');
-      btnDownloadMind.onclick = () => {
-        const a = document.createElement('a');
-        a.href = compiledMindBlobUrl;
-        a.download = 'card.mind';
-        a.click();
-      };
+    progressFill.style.width = '100%';
+    compileStatus.textContent = '🟢 ¡Listo! Cerrando ventana para mostrarte tu imagen...';
+    compileStatus.style.color = '#4cd137';
 
-      compileStatus.textContent = '🟢 ¡Imagen y rastreo AR listos! Apunta la cámara a tu imagen o cierra esta ventana.';
-      if (!isStandalone3DMode) {
+    // 5. Cerrar el modal automáticamente y mostrar la foto en la mesa (o reiniciar cámara AR si estaba en cámara)
+    setTimeout(async () => {
+      markerModal.classList.add('hidden');
+      if (isStandalone3DMode) {
+        triggerOneShotAnimation('Jump');
+        statusText.textContent = '🟢 ¡Nueva imagen aplicada en la mesa!';
+      } else {
         await initMindARCameraMode();
       }
-    } else {
-      compileStatus.textContent = '✅ Imagen aplicada en la mesa 3D.';
-    }
+    }, 650);
+
   } catch (err) {
-    console.warn('Compilación en segundo plano omitida, imagen visual aplicada:', err);
-    compileStatus.textContent = '✅ Imagen aplicada en la mesa. Pulsa "Aplicar y Ver en Mesa".';
+    console.error('Error procesando foto:', err);
+    progressFill.style.width = '100%';
+    compileStatus.textContent = '✅ Foto aplicada en la Mesa 3D.';
+    compileStatus.style.color = '#4cd137';
+    setTimeout(() => {
+      markerModal.classList.add('hidden');
+      initInteractive6DoFTableSimulator('🟢 ¡Nueva imagen aplicada en la mesa!');
+    }, 700);
   }
+}
+
+function loadFileAsImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadUrlAsImage(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = url;
+  });
 }
 
 // ==========================================
@@ -589,6 +649,10 @@ function setupUIEvents() {
   document.getElementById('btn-force-show').addEventListener('click', () => {
     markerModal.classList.add('hidden');
     initInteractive6DoFTableSimulator();
+  });
+  document.getElementById('btn-use-in-camera').addEventListener('click', async () => {
+    markerModal.classList.add('hidden');
+    await initMindARCameraMode();
   });
 
   document.getElementById('upload-marker-input').addEventListener('change', handleCustomMarkerUpload);

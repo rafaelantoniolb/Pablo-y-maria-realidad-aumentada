@@ -3,14 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <title>Pablo y María — Realidad Aumentada</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=5" />
   <script type="importmap">
     {
       "imports": {
         "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
         "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
-        "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+        "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js",
+        "mindar-image": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js"
       }
     }
   </script>
@@ -29,7 +33,7 @@
           <span class="brand-icon">🍽️</span>
           <div class="brand-titles">
             <h1>Pablo y María AR</h1>
-            <p id="status-text">Iniciando cámara AR...</p>
+            <p id="status-text">Cargando experiencia AR...</p>
           </div>
         </div>
         <button id="btn-minigame" class="pill-btn game-btn">
@@ -39,7 +43,7 @@
 
       <div class="top-actions">
         <button id="btn-show-marker" class="pill-btn highlight-btn">
-          🖼️ Imagen Marcador
+          🖼️ Cambiar Imagen / Marcador
         </button>
         <button id="btn-pin-mode" class="pill-btn">
           📷 Cámara AR
@@ -51,7 +55,7 @@
     </header>
 
     <!-- Guía de escaneo cuando busca el marcador en la mesa -->
-    <div id="scan-guide" class="scan-guide">
+    <div id="scan-guide" class="scan-guide hidden">
       <div class="scan-frame">
         <div class="corner tl"></div>
         <div class="corner tr"></div>
@@ -60,8 +64,8 @@
         <img id="scan-preview-img" src="./models/card.png" alt="Marcador" class="scan-preview-img" />
       </div>
       <p class="scan-text">
-        Apunta la cámara a esta imagen sobre la mesa<br/>
-        <small>(O toca <strong>"🖼️ Imagen Marcador"</strong> para cambiarla por cualquier foto/logo)</small>
+        Apunta la cámara a esta imagen en la mesa<br/>
+        <small>(O toca <strong>"🪑 Mesa 3D"</strong> arriba para ver sin marcador)</small>
       </p>
     </div>
 
@@ -69,29 +73,28 @@
     <div id="marker-modal" class="modal hidden">
       <div class="modal-card">
         <div class="modal-header">
-          <h2>🖼️ Imagen que Despliega el Objeto AR</h2>
+          <h2>🖼️ Definir Imagen de la Mesa</h2>
           <button id="btn-close-modal" class="close-btn">✕</button>
         </div>
         <p class="modal-desc">
-          Cuando la cámara ve esta imagen en la mesa, despliega el personaje 3D encima. Puedes apuntar a esta imagen o <strong>subir tu propio logo/foto abajo</strong>:
+          Elige cualquier foto o logo desde tu galería. Se pondrá sobre la mesa y servirá como marcador de Realidad Aumentada:
         </p>
         <div class="marker-img-wrapper">
           <img id="modal-marker-img" src="./models/card.png" alt="Marcador AR" />
         </div>
 
-        <!-- Selector para definir cualquier imagen propia en vivo -->
+        <!-- Selector directo de archivo -->
         <div class="custom-marker-box">
-          <label for="upload-marker-input" class="pill-btn highlight-btn upload-label">
-            📤 Subir mi propia foto / logo
-          </label>
-          <input type="file" id="upload-marker-input" accept="image/*" hidden />
-          <span id="compile-status" class="compile-status"></span>
+          <input type="file" id="upload-marker-input" accept="image/*" class="file-input-visible" />
+          <div id="compile-progress-bar" class="progress-bar hidden">
+            <div id="compile-progress-fill" class="progress-fill"></div>
+          </div>
+          <span id="compile-status" class="compile-status">Selecciona una imagen arriba 👆</span>
         </div>
 
         <div class="modal-footer">
-          <button id="btn-download-mind" class="pill-btn hidden">💾 Descargar .mind</button>
-          <a id="link-open-marker" href="./models/card.png" target="_blank" class="pill-btn">Abrir imagen sola</a>
-          <button id="btn-force-show" class="pill-btn">Aplicar y Ver en Mesa</button>
+          <button id="btn-use-in-camera" class="pill-btn highlight-btn">📷 Escanear esta imagen con Cámara</button>
+          <button id="btn-force-show" class="pill-btn active">🪑 Ver puesta en Mesa 3D</button>
         </div>
       </div>
     </div>
@@ -145,6 +148,6 @@
     </footer>
   </div>
 
-  <script type="module" src="app.js"></script>
+  <script type="module" src="app.js?v=5"></script>
 </body>
 </html>
