@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>Pablo y María — Realidad Aumentada</title>
-  <link rel="stylesheet" href="style.css?v=5" />
+  <link rel="stylesheet" href="style.css?v=6" />
   <script type="importmap">
     {
       "imports": {
@@ -43,13 +43,13 @@
 
       <div class="top-actions">
         <button id="btn-show-marker" class="pill-btn highlight-btn">
-          🖼️ Cambiar Imagen / Marcador
+          🖼️ Cambiar Imagen
+        </button>
+        <button id="btn-tilt-axis" class="pill-btn" title="Ajustar inclinación del plano sobre la mesa">
+          📐 Eje Plano
         </button>
         <button id="btn-pin-mode" class="pill-btn">
-          📷 Cámara AR
-        </button>
-        <button id="btn-webxr" class="pill-btn">
-          🌐 WebXR
+          🪑 Mesa 3D
         </button>
       </div>
     </header>
@@ -93,8 +93,8 @@
         </div>
 
         <div class="modal-footer">
-          <button id="btn-use-in-camera" class="pill-btn highlight-btn">📷 Escanear esta imagen con Cámara</button>
-          <button id="btn-force-show" class="pill-btn active">🪑 Ver puesta en Mesa 3D</button>
+          <button id="btn-use-in-camera" class="pill-btn highlight-btn">📷 Escanear con Cámara</button>
+          <button id="btn-force-show" class="pill-btn active">🪑 Ver en Mesa 3D</button>
         </div>
       </div>
     </div>
@@ -148,6 +148,6 @@
     </footer>
   </div>
 
-  <script type="module" src="app.js?v=5"></script>
+  <script type="module" src="app.js?v=6"></script>
 </body>
 </html>

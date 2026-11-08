@@ -12,6 +12,7 @@ const scanGuide = document.getElementById('scan-guide');
 const markerModal = document.getElementById('marker-modal');
 const scoreVal = document.getElementById('score-val');
 const btnPinMode = document.getElementById('btn-pin-mode');
+const btnTiltAxis = document.getElementById('btn-tilt-axis');
 const scanPreviewImg = document.getElementById('scan-preview-img');
 const modalMarkerImg = document.getElementById('modal-marker-img');
 const compileStatus = document.getElementById('compile-status');
@@ -43,7 +44,16 @@ let isTurbo = false;
 let isStandalone3DMode = false;
 let isMarkerVisible = false;
 
-// Escalas proporcionadas para que se vea completo en celulares verticales
+// Ángulos de inclinación del plano sobre el eje X cuando está en Cámara AR:
+// 0.22 rad (~12°) mantiene la malla acostada en el eje X/Z horizontal y al robot parado de frente
+const arTiltPresets = [
+  { angle: 0.22, label: '📐 Plano: Horizontal' },
+  { angle: 0.55, label: '📐 Plano: 35°' },
+  { angle: -0.25, label: '📐 Plano: Inverso' }
+];
+let tiltIndex = 0;
+
+// Escalas proporcionadas para celulares
 const scales = [0.12, 0.17, 0.24];
 let scaleIndex = 1;
 const TABLE_LIMIT = 1.05;
@@ -94,8 +104,9 @@ async function initMindARCameraMode() {
     setupLights(scene);
 
     anchor = mindarThree.addAnchor(0);
-    tableSurfaceGroup.position.set(0, 0, 0);
-    tableSurfaceGroup.rotation.set(Math.PI / 2, 0, 0);
+    // Colocar el plano acostado en el eje X/Z (sin los 90° que lo ponían vertical en el eje Y)
+    tableSurfaceGroup.position.set(0, -0.15, 0);
+    tableSurfaceGroup.rotation.set(arTiltPresets[tiltIndex].angle, 0, 0);
     if (restaurantTableMeshGroup) restaurantTableMeshGroup.visible = false;
     anchor.group.add(tableSurfaceGroup);
 
@@ -241,7 +252,7 @@ function buildTableSurfaceElements() {
   tableSurfaceGroup.add(restaurantTableMeshGroup);
 
   platformGrid = new THREE.GridHelper(2.2, 10, 0x00d2d3, 0xffffff);
-  platformGrid.material.opacity = 0.28;
+  platformGrid.material.opacity = 0.35;
   platformGrid.material.transparent = true;
   platformGrid.position.y = 0.005;
   tableSurfaceGroup.add(platformGrid);
@@ -269,7 +280,6 @@ async function handleCustomMarkerUpload(event) {
   progressFill.style.width = '15%';
 
   try {
-    // 1. Leer archivo y redimensionarlo a un canvas ligero (máx 512px) para no saturar la memoria del celular
     const bitmapImg = await loadFileAsImage(file);
     const maxDim = 512;
     let w = bitmapImg.width;
@@ -292,19 +302,16 @@ async function handleCustomMarkerUpload(event) {
 
     const resizedDataUrl = offscreenCanvas.toDataURL('image/jpeg', 0.88);
 
-    // 2. Actualizar inmediatamente la vista previa en el modal y en el visor de cámara
     currentMarkerImageUrl = resizedDataUrl;
     modalMarkerImg.src = resizedDataUrl;
     scanPreviewImg.src = resizedDataUrl;
 
-    // 3. Actualizar la textura 3D directamente sobre la mesa usando CanvasTexture (instantáneo y sin fallos)
     if (cardMeshOnTable) {
       const canvasTex = new THREE.CanvasTexture(offscreenCanvas);
       canvasTex.colorSpace = THREE.SRGBColorSpace;
       canvasTex.needsUpdate = true;
       cardMeshOnTable.material.map = canvasTex;
       cardMeshOnTable.material.needsUpdate = true;
-      // Ajustar proporción del tapete en la mesa a la foto subida
       const ratio = w / h;
       const baseH = 0.9;
       const baseW = THREE.MathUtils.clamp(baseH * ratio, 0.6, 1.5);
@@ -315,7 +322,6 @@ async function handleCustomMarkerUpload(event) {
     progressFill.style.width = '40%';
     compileStatus.textContent = '✅ ¡Foto puesta en la mesa! Generando puntos AR...';
 
-    // 4. Compilar puntos de rastreo AR sobre la imagen ligera de 512px
     const smallImg = await loadUrlAsImage(resizedDataUrl);
     const mindModule = await import('mindar-image');
     const CompilerClass = mindModule.Compiler || (window.MINDAR && window.MINDAR.IMAGE && window.MINDAR.IMAGE.Compiler);
@@ -336,10 +342,9 @@ async function handleCustomMarkerUpload(event) {
     }
 
     progressFill.style.width = '100%';
-    compileStatus.textContent = '🟢 ¡Listo! Cerrando ventana para mostrarte tu imagen...';
+    compileStatus.textContent = '🟢 ¡Listo! Cerrando ventana...';
     compileStatus.style.color = '#4cd137';
 
-    // 5. Cerrar el modal automáticamente y mostrar la foto en la mesa (o reiniciar cámara AR si estaba en cámara)
     setTimeout(async () => {
       markerModal.classList.add('hidden');
       if (isStandalone3DMode) {
@@ -348,7 +353,7 @@ async function handleCustomMarkerUpload(event) {
       } else {
         await initMindARCameraMode();
       }
-    }, 650);
+    }, 600);
 
   } catch (err) {
     console.error('Error procesando foto:', err);
@@ -526,26 +531,12 @@ async function togglePinMode() {
   }
 }
 
-async function startWebXRSession() {
-  if (!navigator.xr) {
-    alert('WebXR SLAM requiere Chrome en Android o gafas XR.');
-    return;
-  }
-  const supported = await navigator.xr.isSessionSupported('immersive-ar');
-  if (!supported) {
-    alert('Este dispositivo no soporta WebXR sin marcador. Usa el modo Cámara AR con Imagen Marcador.');
-    return;
-  }
-  try {
-    const session = await navigator.xr.requestSession('immersive-ar', {
-      requiredFeatures: ['hit-test'],
-      optionalFeatures: ['dom-overlay'],
-      domOverlay: { root: document.getElementById('ui-overlay') }
-    });
-    renderer.xr.enabled = true;
-    await renderer.xr.setSession(session);
-  } catch (e) {
-    console.error(e);
+function cyclePlaneTilt() {
+  tiltIndex = (tiltIndex + 1) % arTiltPresets.length;
+  const preset = arTiltPresets[tiltIndex];
+  btnTiltAxis.textContent = preset.label;
+  if (!isStandalone3DMode) {
+    tableSurfaceGroup.rotation.set(preset.angle, 0, 0);
   }
 }
 
@@ -658,7 +649,7 @@ function setupUIEvents() {
   document.getElementById('upload-marker-input').addEventListener('change', handleCustomMarkerUpload);
 
   btnPinMode.addEventListener('click', togglePinMode);
-  document.getElementById('btn-webxr').addEventListener('click', startWebXRSession);
+  btnTiltAxis.addEventListener('click', cyclePlaneTilt);
   document.getElementById('btn-minigame').addEventListener('click', toggleMinigame);
 
   window.addEventListener('resize', () => {
