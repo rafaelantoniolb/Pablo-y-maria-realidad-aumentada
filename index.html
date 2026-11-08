@@ -6,12 +6,11 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <title>Pablo & María — Experiencia AR en tu Mesa</title>
-  <!-- Tipografías gastronómicas modernas estilo @pabloymaria.co -->
+  <title>Pablo & María — Pablito el Chef AR</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=11" />
+  <link rel="stylesheet" href="style.css?v=13" />
   <script type="importmap">
     {
       "imports": {
@@ -36,8 +35,8 @@
         <div class="brand">
           <div class="brand-badge">P&amp;M</div>
           <div class="brand-titles">
-            <h1>PABLO &amp; MARÍA <span class="brand-tag">AR</span></h1>
-            <p id="status-text">Apunta a tu mesa para empezar</p>
+            <h1>PABLITO EL CHEF <span class="brand-tag">P&amp;M AR</span></h1>
+            <p id="status-text">Apunta a tu mesa para llamar a Pablito</p>
           </div>
         </div>
 
@@ -71,7 +70,7 @@
         <!-- Barra directa para ajustar el tamaño del Chef en tiempo real -->
         <div class="size-control-row">
           <button id="btn-size-down" class="size-step-btn" aria-label="Achicar">➖</button>
-          <span class="size-label">Tamaño Chef:</span>
+          <span class="size-label">Tamaño Pablito:</span>
           <input type="range" id="size-slider" min="0.08" max="0.55" step="0.01" value="0.18" />
           <button id="btn-size-up" class="size-step-btn" aria-label="Agrandar">➕</button>
         </div>
@@ -122,32 +121,31 @@
       </div>
     </div>
 
-    <!-- Controles Inferiores: Flechitas (D-Pad) + Botones de Acción del Chef -->
+    <!-- Controles Inferiores: Joystick Analógico 360° + Botones de Show del Chef -->
     <footer class="bottom-controls">
       
-      <!-- Cruceta de Flechitas (D-Pad) -->
-      <div class="dpad-container">
-        <div class="dpad-label">MOVER CHEF</div>
-        <div class="dpad">
-          <button class="dpad-btn up" data-dir="up" aria-label="Alejar">▲</button>
-          <button class="dpad-btn left" data-dir="left" aria-label="Izquierda">◀</button>
-          <div class="dpad-center" id="btn-reset-pos" title="Centrar Chef">👨‍🍳</div>
-          <button class="dpad-btn right" data-dir="right" aria-label="Derecha">▶</button>
-          <button class="dpad-btn down" data-dir="down" aria-label="Acercar">▼</button>
+      <!-- Joystick Analógico 360° (Movimiento fluido y diagonales libres) -->
+      <div class="joystick-container">
+        <div class="dpad-label">MOVER A PABLITO</div>
+        <div id="joystick-zone" class="joystick-zone">
+          <div class="joystick-ring"></div>
+          <div id="joystick-knob" class="joystick-knob">
+            <span>👨‍🍳</span>
+          </div>
         </div>
       </div>
 
-      <!-- Botones de Animaciones / Interacción del Chef -->
+      <!-- Botones de Animaciones / Show del Chef -->
       <div class="actions-container">
-        <div class="dpad-label">SHOW DEL CHEF</div>
+        <div class="dpad-label">SHOW DE PABLITO</div>
         <div class="action-grid">
+          <button class="action-btn highlight-action" data-action="Cook">
+            <span class="emoji">🔥</span>
+            <span>Parrilla</span>
+          </button>
           <button class="action-btn" data-action="Wave">
             <span class="emoji">👋</span>
             <span>Saludar</span>
-          </button>
-          <button class="action-btn" data-action="Cook">
-            <span class="emoji">🍔</span>
-            <span>Cocinar</span>
           </button>
           <button class="action-btn" data-action="Dance">
             <span class="emoji">💃</span>
@@ -157,9 +155,9 @@
             <span class="emoji">🦘</span>
             <span>Saltar</span>
           </button>
-          <button class="action-btn" data-action="ThumbsUp">
-            <span class="emoji">🔥</span>
-            <span>¡A Comer!</span>
+          <button class="action-btn" id="btn-reset-pos">
+            <span class="emoji">🎯</span>
+            <span>Centrar</span>
           </button>
           <button class="action-btn" id="btn-speed">
             <span class="emoji">⚡</span>
@@ -171,6 +169,6 @@
     </footer>
   </div>
 
-  <script type="module" src="app.js?v=11"></script>
+  <script type="module" src="app.js?v=13"></script>
 </body>
 </html>
