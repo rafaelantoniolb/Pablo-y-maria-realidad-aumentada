@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { MindARThree } from 'mindar-image-three';
+import { Compiler } from 'mindar-image';
 
 // ==========================================
 // 1. ESTADO GLOBAL Y REFERENCIAS UI
@@ -12,15 +13,25 @@ const scanGuide = document.getElementById('scan-guide');
 const markerModal = document.getElementById('marker-modal');
 const scoreVal = document.getElementById('score-val');
 const btnPinMode = document.getElementById('btn-pin-mode');
+const scanPreviewImg = document.getElementById('scan-preview-img');
+const modalMarkerImg = document.getElementById('modal-marker-img');
+const linkOpenMarker = document.getElementById('link-open-marker');
+const compileStatus = document.getElementById('compile-status');
+const btnDownloadMind = document.getElementById('btn-download-mind');
+
+// Ruta por defecto de la imagen que despliega el objeto 3D
+let currentMindTargetUrl = './models/card.mind';
+let currentMarkerImageUrl = './models/card.png';
+let compiledMindBlobUrl = null;
 
 let mindarThree = null;
 let renderer, scene, camera, anchor, orbitControls;
 const clock = new THREE.Clock();
 
-// Grupo que representa el plano físico de la mesa (todo lo que está aquí arriba se inclina y mueve con la mesa)
 const tableSurfaceGroup = new THREE.Group();
 const characterGroup = new THREE.Group();
 let restaurantTableMeshGroup = null;
+let cardMeshOnTable = null;
 
 let targetRing = null;
 let platformGrid = null;
@@ -29,54 +40,28 @@ const actions = {};
 let activeAction = null;
 let previousAction = null;
 
-// Estado de movimiento con flechitas sobre el plano de la mesa
 const moveState = { up: false, down: false, left: false, right: false };
 let isTurbo = false;
-let isStandalone3DMode = false; // Se activa si no hay webcam o el usuario fija la mesa
+let isStandalone3DMode = false;
 let isMarkerVisible = false;
 
-const scales = [0.16, 0.24, 0.34];
+// Escalas proporcionadas para que se vea completo en celulares verticales
+const scales = [0.12, 0.17, 0.24];
 let scaleIndex = 1;
-const TABLE_LIMIT = 1.15;
+const TABLE_LIMIT = 1.05;
 
-// Mini-juego en la mesa
 let minigameActive = false;
 let collectibleMesh = null;
 let score = 0;
 
 // ==========================================
-// 2. VERIFICAR CÁMARA E INICIAR MOTOR ADECUADO
+// 2. INICIALIZAR APLICACIÓN (CÁMARA AR DIRECTA)
 // ==========================================
 async function startApp() {
-  // Construir elementos de la mesa y cargar el personaje una sola vez
   buildTableSurfaceElements();
   await loadCharacterModel();
-
-  // Verificar si el navegador tiene acceso a una cámara real
-  const hasCamera = await checkCameraAvailability();
-
-  if (hasCamera) {
-    await initMindARCameraMode();
-  } else {
-    initInteractive6DoFTableSimulator(
-      '🟡 No se detectó cámara web (o falta HTTPS en móvil) — Modo Mesa 3D 6DoF Activo (Arrastra para girar/inclinar la mesa)'
-    );
-  }
-}
-
-async function checkCameraAvailability() {
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    return false;
-  }
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-    // Cerramos el stream de prueba inmediatamente para que MindAR lo pueda usar
-    stream.getTracks().forEach(t => t.stop());
-    return true;
-  } catch (e) {
-    console.warn('Cámara no disponible:', e.name, e.message);
-    return false;
-  }
+  // Intentar abrir directamente la cámara AR con MindAR (sin bloqueo previo de getUserMedia)
+  await initMindARCameraMode();
 }
 
 // ==========================================
@@ -84,17 +69,22 @@ async function checkCameraAvailability() {
 // ==========================================
 async function initMindARCameraMode() {
   try {
+    if (mindarThree) {
+      try { mindarThree.stop(); } catch (e) {}
+      mindarThree = null;
+    }
+
     isStandalone3DMode = false;
     arContainer.innerHTML = '';
 
     mindarThree = new MindARThree({
       container: arContainer,
-      imageTargetSrc: './models/card.mind',
+      imageTargetSrc: currentMindTargetUrl,
       filterMinCF: 0.0001,
       filterBeta: 0.001,
       uiLoading: 'no',
       uiScanning: 'no',
-      uiError: 'no' // Evita el cartel "Your device/browser is not compatible"
+      uiError: 'no'
     });
 
     renderer = mindarThree.renderer;
@@ -115,7 +105,7 @@ async function initMindARCameraMode() {
     anchor.onTargetFound = () => {
       isMarkerVisible = true;
       scanGuide.classList.add('hidden');
-      statusText.textContent = '🟢 ¡Superficie AR Detectada (6DoF)! Usa las flechitas para moverte';
+      statusText.textContent = '🟢 ¡Marcador Detectado! Usa las flechitas para moverte';
       statusText.style.color = '#4cd137';
       triggerOneShotAnimation('Wave');
     };
@@ -123,15 +113,16 @@ async function initMindARCameraMode() {
     anchor.onTargetLost = () => {
       isMarkerVisible = false;
       scanGuide.classList.remove('hidden');
-      statusText.textContent = '🔍 Buscando marcador en la mesa... (o pulsa "📌 Modo Mesa 3D Sin Marcador")';
+      statusText.textContent = '📷 Apunta a la imagen marcador (o toca "🪑 Mesa 3D")';
       statusText.style.color = '#48dbfb';
     };
 
     await mindarThree.start();
     scanGuide.classList.remove('hidden');
-    btnPinMode.textContent = '📌 Modo Mesa Sin Marcador: OFF';
+    btnPinMode.textContent = '🪑 Mesa 3D (Sin Cámara)';
     btnPinMode.classList.remove('active');
-    statusText.textContent = '📷 Cámara AR activa — Apunta al marcador o activa "📌 Modo Mesa Sin Marcador"';
+    statusText.textContent = '📷 Cámara AR activa — Apunta a la imagen marcador';
+    statusText.style.color = '#48dbfb';
 
     renderer.setAnimationLoop(() => {
       const delta = clock.getDelta();
@@ -140,15 +131,15 @@ async function initMindARCameraMode() {
       renderer.render(scene, camera);
     });
   } catch (err) {
-    console.warn('Fallo al iniciar MindAR, cambiando a simulador 6DoF:', err);
+    console.warn('No se pudo abrir la cámara para MindAR, activando Mesa 3D:', err);
     initInteractive6DoFTableSimulator(
-      '🟡 Cámara ocupada o no compatible — Modo Mesa 3D 6DoF Activo'
+      '🟡 Modo Mesa 3D Activo (Toca "📷 Cámara AR" para reintentar cámara)'
     );
   }
 }
 
 // ==========================================
-// 3B. MODO MESA 3D 6DoF INTERACTIVO (SIN CÁMARA / SIN MARCADOR)
+// 3B. MODO MESA 3D 6DoF INTERACTIVO (SIN CÁMARA)
 // ==========================================
 function initInteractive6DoFTableSimulator(customMessage) {
   isStandalone3DMode = true;
@@ -163,9 +154,11 @@ function initInteractive6DoFTableSimulator(customMessage) {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x141824);
 
-  camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
-  camera.position.set(0, 2.2, 2.8);
-  camera.lookAt(0, 0, 0);
+  const isPortrait = window.innerWidth < window.innerHeight;
+  camera = new THREE.PerspectiveCamera(isPortrait ? 55 : 48, window.innerWidth / window.innerHeight, 0.1, 100);
+  // Alejar un poco más la cámara en celulares verticales para que el personaje se vea entero
+  camera.position.set(0, isPortrait ? 2.6 : 2.1, isPortrait ? 3.8 : 2.8);
+  camera.lookAt(0, 0.2, 0);
 
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -174,26 +167,24 @@ function initInteractive6DoFTableSimulator(customMessage) {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   arContainer.appendChild(renderer.domElement);
 
-  // OrbitControls permite mover la cámara en 6DoF alrededor de la mesa como si movieras el celular en el mundo real
   orbitControls = new OrbitControls(camera, renderer.domElement);
   orbitControls.enableDamping = true;
   orbitControls.dampingFactor = 0.06;
-  orbitControls.maxPolarAngle = Math.PI / 2 - 0.05; // No bajar por debajo del suelo de la mesa
-  orbitControls.minDistance = 1.0;
-  orbitControls.maxDistance = 6.0;
-  orbitControls.target.set(0, 0.1, 0);
+  orbitControls.maxPolarAngle = Math.PI / 2 - 0.05;
+  orbitControls.minDistance = 1.2;
+  orbitControls.maxDistance = 6.5;
+  orbitControls.target.set(0, 0.25, 0);
 
   setupLights(scene);
 
-  // Colocar el plano de la mesa horizontal en el origen
   tableSurfaceGroup.position.set(0, 0, 0);
   tableSurfaceGroup.rotation.set(0, 0, 0);
   if (restaurantTableMeshGroup) restaurantTableMeshGroup.visible = true;
   scene.add(tableSurfaceGroup);
 
-  btnPinMode.textContent = '📌 Modo Mesa Sin Marcador: ON';
+  btnPinMode.textContent = '📷 Activar Cámara AR';
   btnPinMode.classList.add('active');
-  statusText.textContent = customMessage || '🟢 Mesa 3D 6DoF Activa — Gira la cámara con el mouse y mueve con las flechas';
+  statusText.textContent = customMessage || '🟢 Mesa 3D Activa — Gira con el dedo y mueve con las flechas';
   statusText.style.color = '#ff9f43';
 
   triggerOneShotAnimation('Wave');
@@ -223,60 +214,117 @@ function setupLights(targetScene) {
 // 4. CONSTRUIR LA MESA DEL RESTAURANTE Y SUPERFICIE AR
 // ==========================================
 function buildTableSurfaceElements() {
-  // Grupo con la mesa de madera e individual (para verse increíble cuando no hay marcador)
   restaurantTableMeshGroup = new THREE.Group();
 
-  // Tablero de madera de restaurante
-  const woodGeo = new THREE.BoxGeometry(2.6, 0.12, 2.6);
+  const woodGeo = new THREE.BoxGeometry(2.4, 0.12, 2.4);
   const woodMat = new THREE.MeshStandardMaterial({ color: 0x6b4226, roughness: 0.65 });
   const woodTable = new THREE.Mesh(woodGeo, woodMat);
   woodTable.position.y = -0.065;
   woodTable.receiveShadow = true;
   restaurantTableMeshGroup.add(woodTable);
 
-  // Individual con la textura del marcador de mesa en el centro
   const texLoader = new THREE.TextureLoader();
-  const cardTexture = texLoader.load('./models/card.png');
-  const cardGeo = new THREE.PlaneGeometry(1.1, 0.72);
+  const cardTexture = texLoader.load(currentMarkerImageUrl);
+  const cardGeo = new THREE.PlaneGeometry(1.0, 0.68);
   const cardMat = new THREE.MeshStandardMaterial({ map: cardTexture, roughness: 0.8 });
-  const cardMesh = new THREE.Mesh(cardGeo, cardMat);
-  cardMesh.rotation.x = -Math.PI / 2;
-  cardMesh.position.y = 0.002;
-  cardMesh.receiveShadow = true;
-  restaurantTableMeshGroup.add(cardMesh);
+  cardMeshOnTable = new THREE.Mesh(cardGeo, cardMat);
+  cardMeshOnTable.rotation.x = -Math.PI / 2;
+  cardMeshOnTable.position.y = 0.002;
+  cardMeshOnTable.receiveShadow = true;
+  restaurantTableMeshGroup.add(cardMeshOnTable);
 
-  // Plato decorativo y vaso en la esquina de la mesa
-  const plateGeo = new THREE.CylinderGeometry(0.32, 0.24, 0.03, 32);
+  const plateGeo = new THREE.CylinderGeometry(0.28, 0.22, 0.03, 32);
   const plateMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 });
   const plate = new THREE.Mesh(plateGeo, plateMat);
-  plate.position.set(-0.78, 0.02, -0.75);
+  plate.position.set(-0.72, 0.02, -0.7);
   plate.castShadow = true;
   plate.receiveShadow = true;
   restaurantTableMeshGroup.add(plate);
 
   tableSurfaceGroup.add(restaurantTableMeshGroup);
 
-  // Cuadrícula holográfica AR sobre la superficie de la mesa
-  platformGrid = new THREE.GridHelper(2.4, 12, 0x00d2d3, 0xffffff);
-  platformGrid.material.opacity = 0.32;
+  platformGrid = new THREE.GridHelper(2.2, 10, 0x00d2d3, 0xffffff);
+  platformGrid.material.opacity = 0.28;
   platformGrid.material.transparent = true;
   platformGrid.position.y = 0.005;
   tableSurfaceGroup.add(platformGrid);
 
-  // Anillo indicador bajo los pies del personaje
-  const ringGeo = new THREE.RingGeometry(0.14, 0.18, 32);
+  const ringGeo = new THREE.RingGeometry(0.12, 0.16, 32);
   const ringMat = new THREE.MeshBasicMaterial({ color: 0x00d2d3, side: THREE.DoubleSide });
   targetRing = new THREE.Mesh(ringGeo, ringMat);
   targetRing.rotation.x = -Math.PI / 2;
   targetRing.position.y = 0.012;
   tableSurfaceGroup.add(targetRing);
 
-  // Añadir personaje al plano de la mesa
   tableSurfaceGroup.add(characterGroup);
 }
 
 // ==========================================
-// 5. CARGAR PERSONAJE 3D ANIMADO (.GLB LOCAL)
+// 5. COMPILADOR EN VIVO PARA DEFINIR CUALQUIER IMAGEN COMO MARCADOR
+// ==========================================
+async function handleCustomMarkerUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  compileStatus.textContent = '⏳ Procesando imagen para Realidad Aumentada (3 seg)...';
+  compileStatus.style.color = '#fbc531';
+
+  try {
+    const imgUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.src = imgUrl;
+    await new Promise((res, rej) => {
+      img.onload = res;
+      img.onerror = rej;
+    });
+
+    const compiler = new Compiler();
+    await compiler.compileImageTargets([img], (progress) => {
+      compileStatus.textContent = `⏳ Analizando puntos de rastreo: ${Math.round(progress)}%`;
+    });
+
+    const exportedBuffer = await compiler.exportData();
+    const blob = new Blob([exportedBuffer], { type: 'application/octet-stream' });
+
+    if (compiledMindBlobUrl) URL.revokeObjectURL(compiledMindBlobUrl);
+    compiledMindBlobUrl = URL.createObjectURL(blob);
+    currentMindTargetUrl = compiledMindBlobUrl;
+    currentMarkerImageUrl = imgUrl;
+
+    // Actualizar las vistas previas de la imagen marcador
+    scanPreviewImg.src = imgUrl;
+    modalMarkerImg.src = imgUrl;
+    linkOpenMarker.href = imgUrl;
+
+    if (cardMeshOnTable) {
+      const newTex = new THREE.TextureLoader().load(imgUrl);
+      cardMeshOnTable.material.map = newTex;
+      cardMeshOnTable.material.needsUpdate = true;
+    }
+
+    // Habilitar botón para descargar el archivo .mind por si quiere guardarlo fijo en /models/card.mind
+    btnDownloadMind.classList.remove('hidden');
+    btnDownloadMind.onclick = () => {
+      const a = document.createElement('a');
+      a.href = compiledMindBlobUrl;
+      a.download = 'card.mind';
+      a.click();
+    };
+
+    compileStatus.textContent = '✅ ¡Lista! Ahora apunta la cámara a esa imagen para desplegar el objeto.';
+    compileStatus.style.color = '#4cd137';
+
+    // Reiniciar la cámara AR con el nuevo marcador
+    await initMindARCameraMode();
+  } catch (err) {
+    console.error('Error compilando imagen:', err);
+    compileStatus.textContent = '❌ No se pudo compilar la imagen. Intenta con otra foto con más detalles.';
+    compileStatus.style.color = '#ff6b6b';
+  }
+}
+
+// ==========================================
+// 6. CARGAR PERSONAJE 3D ANIMADO (.GLB LOCAL)
 // ==========================================
 function loadCharacterModel() {
   return new Promise((resolve) => {
@@ -338,7 +386,7 @@ function triggerOneShotAnimation(name) {
 }
 
 // ==========================================
-// 6. MOVIMIENTO CON FLECHITAS SOBRE EL PLANO DE LA MESA
+// 7. MOVIMIENTO CON FLECHITAS SOBRE LA MESA
 // ==========================================
 function isMoving() {
   return moveState.up || moveState.down || moveState.left || moveState.right;
@@ -358,7 +406,7 @@ function updateMovementOnTable(delta) {
     dx /= len;
     dz /= len;
 
-    const speed = isTurbo ? 1.4 : 0.8;
+    const speed = isTurbo ? 1.35 : 0.75;
     characterGroup.position.x = THREE.MathUtils.clamp(
       characterGroup.position.x + dx * speed * delta,
       -TABLE_LIMIT,
@@ -396,7 +444,7 @@ function updateMovementOnTable(delta) {
       characterGroup.position.x - collectibleMesh.position.x,
       characterGroup.position.z - collectibleMesh.position.z
     );
-    if (dist < 0.26) {
+    if (dist < 0.24) {
       score++;
       scoreVal.textContent = score;
       triggerOneShotAnimation('ThumbsUp');
@@ -406,16 +454,11 @@ function updateMovementOnTable(delta) {
 }
 
 // ==========================================
-// 7. ALTERNAR ENTRE CÁMARA AR Y MESA 3D 6DoF
+// 8. ALTERNAR MODOS Y CONTROLES UI
 // ==========================================
 async function togglePinMode() {
   if (isStandalone3DMode) {
-    const hasCam = await checkCameraAvailability();
-    if (hasCam) {
-      await initMindARCameraMode();
-    } else {
-      alert('No se detectó una cámara web conectada (o abriste la página sin HTTPS en un celular). Se mantendrá el Modo Mesa 3D 6DoF.');
-    }
+    await initMindARCameraMode();
   } else {
     initInteractive6DoFTableSimulator();
   }
@@ -423,12 +466,12 @@ async function togglePinMode() {
 
 async function startWebXRSession() {
   if (!navigator.xr) {
-    alert('WebXR SLAM requiere Chrome en Android (con HTTPS) o gafas XR.');
+    alert('WebXR SLAM requiere Chrome en Android o gafas XR.');
     return;
   }
   const supported = await navigator.xr.isSessionSupported('immersive-ar');
   if (!supported) {
-    alert('Este navegador/dispositivo no soporta WebXR immersive-ar sin marcador.');
+    alert('Este dispositivo no soporta WebXR sin marcador. Usa el modo Cámara AR con Imagen Marcador.');
     return;
   }
   try {
@@ -451,7 +494,7 @@ function toggleMinigame() {
   if (minigameActive) {
     btn.classList.add('active');
     if (!collectibleMesh) {
-      const geo = new THREE.OctahedronGeometry(0.12, 0);
+      const geo = new THREE.OctahedronGeometry(0.11, 0);
       const mat = new THREE.MeshStandardMaterial({
         color: 0xfbc531,
         emissive: 0xe1b12c,
@@ -475,12 +518,9 @@ function spawnCollectible() {
   if (!collectibleMesh) return;
   const rx = (Math.random() * 2 - 1) * (TABLE_LIMIT * 0.8);
   const rz = (Math.random() * 2 - 1) * (TABLE_LIMIT * 0.8);
-  collectibleMesh.position.set(rx, 0.15, rz);
+  collectibleMesh.position.set(rx, 0.14, rz);
 }
 
-// ==========================================
-// 8. CONTROLES Y EVENTOS UI
-// ==========================================
 function setupUIEvents() {
   document.querySelectorAll('.dpad-btn').forEach((btn) => {
     const dir = btn.dataset.dir;
@@ -548,6 +588,8 @@ function setupUIEvents() {
     markerModal.classList.add('hidden');
     initInteractive6DoFTableSimulator();
   });
+
+  document.getElementById('upload-marker-input').addEventListener('change', handleCustomMarkerUpload);
 
   btnPinMode.addEventListener('click', togglePinMode);
   document.getElementById('btn-webxr').addEventListener('click', startWebXRSession);

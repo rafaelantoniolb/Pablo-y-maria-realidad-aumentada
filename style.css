@@ -10,6 +10,7 @@
 html, body {
   width: 100%;
   height: 100%;
+  height: 100dvh;
   overflow: hidden;
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   background-color: #0e1017;
@@ -17,13 +18,13 @@ html, body {
   touch-action: none;
 }
 
-/* Contenedor principal de MindAR (video + canvas WebGL sincronizados en 6DoF) */
+/* Contenedor principal de MindAR y Three.js */
 #ar-container {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
   z-index: 1;
   overflow: hidden;
 }
@@ -38,66 +39,82 @@ html, body {
   object-fit: cover;
 }
 
-/*Capa de Interfaz encima de la cámara AR */
+/* Capa de Interfaz encima de la cámara AR ajustada al alto real visible (100dvh) */
 #ui-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
   z-index: 10;
   pointer-events: none;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 14px;
+  padding: 10px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
 }
 
-/* Barra superior */
+/* Barra superior compacta */
 .top-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(14, 16, 23, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  padding: 8px 12px;
+  pointer-events: auto;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+.brand-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  background: rgba(14, 16, 23, 0.78);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 16px;
-  padding: 10px 16px;
-  pointer-events: auto;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  gap: 8px;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  min-width: 0;
 }
 
 .brand-icon {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   background: rgba(0, 210, 211, 0.18);
   border: 1px solid rgba(0, 210, 211, 0.45);
-  border-radius: 12px;
-  padding: 6px 8px;
+  border-radius: 10px;
+  padding: 4px 6px;
+  flex-shrink: 0;
+}
+
+.brand-titles {
+  min-width: 0;
 }
 
 .brand h1 {
-  font-size: 0.98rem;
+  font-size: 0.92rem;
   font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 #status-text {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   color: #48dbfb;
   font-weight: 600;
+  line-height: 1.2;
 }
 
 .top-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
@@ -106,12 +123,13 @@ html, body {
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 999px;
-  padding: 8px 13px;
-  font-size: 0.8rem;
+  padding: 6px 11px;
+  font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .pill-btn:hover {
@@ -123,7 +141,6 @@ html, body {
   border-color: transparent;
   color: #0b131e;
   font-weight: 700;
-  box-shadow: 0 4px 14px rgba(0, 210, 211, 0.35);
 }
 
 .pill-btn.active {
@@ -136,6 +153,11 @@ html, body {
   background: rgba(251, 197, 49, 0.18);
   border-color: rgba(251, 197, 49, 0.5);
   color: #fbc531;
+  padding: 5px 10px;
+}
+
+.hidden {
+  display: none !important;
 }
 
 /* Guía visual de escaneo AR */
@@ -144,22 +166,17 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  transition: opacity 0.35s ease, transform 0.35s ease;
+  gap: 8px;
+  transition: opacity 0.35s ease;
   pointer-events: none;
-}
-
-.scan-guide.hidden {
-  opacity: 0;
-  transform: scale(0.9);
 }
 
 .scan-frame {
   position: relative;
-  width: 220px;
-  height: 150px;
+  width: 170px;
+  height: 115px;
   border: 1px dashed rgba(0, 210, 211, 0.45);
-  border-radius: 16px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -167,66 +184,65 @@ html, body {
 }
 
 .scan-preview-img {
-  width: 130px;
-  border-radius: 8px;
-  opacity: 0.42;
-  filter: saturate(0.8);
+  max-width: 110px;
+  max-height: 90px;
+  border-radius: 6px;
+  opacity: 0.48;
+  object-fit: contain;
 }
 
 .corner {
   position: absolute;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border-color: #00d2d3;
   border-style: solid;
   border-width: 0;
 }
-.corner.tl { top: -2px; left: -2px; border-top-width: 4px; border-left-width: 4px; border-top-left-radius: 12px; }
-.corner.tr { top: -2px; right: -2px; border-top-width: 4px; border-right-width: 4px; border-top-right-radius: 12px; }
-.corner.bl { bottom: -2px; left: -2px; border-bottom-width: 4px; border-left-width: 4px; border-bottom-left-radius: 12px; }
-.corner.br { bottom: -2px; right: -2px; border-bottom-width: 4px; border-right-width: 4px; border-bottom-right-radius: 12px; }
+.corner.tl { top: -2px; left: -2px; border-top-width: 3px; border-left-width: 3px; border-top-left-radius: 10px; }
+.corner.tr { top: -2px; right: -2px; border-top-width: 3px; border-right-width: 3px; border-top-right-radius: 10px; }
+.corner.bl { bottom: -2px; left: -2px; border-bottom-width: 3px; border-left-width: 3px; border-bottom-left-radius: 10px; }
+.corner.br { bottom: -2px; right: -2px; border-bottom-width: 3px; border-right-width: 3px; border-bottom-right-radius: 10px; }
 
 .scan-text {
   background: rgba(14, 16, 23, 0.82);
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  padding: 10px 18px;
-  border-radius: 14px;
+  padding: 7px 12px;
+  border-radius: 12px;
   text-align: center;
-  font-size: 0.85rem;
-  line-height: 1.4;
-  max-width: 420px;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  max-width: 320px;
 }
 
 /* Modal de la imagen marcador */
 .modal {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(0, 0, 0, 0.78);
   backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: 12px;
   z-index: 100;
   pointer-events: auto;
-}
-
-.modal.hidden {
-  display: none;
 }
 
 .modal-card {
   background: #171a26;
   border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 20px;
-  padding: 20px;
-  max-width: 520px;
+  border-radius: 18px;
+  padding: 16px;
+  max-width: 460px;
   width: 100%;
+  max-height: 92dvh;
+  overflow-y: auto;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 11px;
 }
 
 .modal-header {
@@ -236,7 +252,7 @@ html, body {
 }
 
 .modal-header h2 {
-  font-size: 1.1rem;
+  font-size: 0.98rem;
   color: #00d2d3;
 }
 
@@ -244,37 +260,60 @@ html, body {
   background: rgba(255, 255, 255, 0.1);
   border: none;
   color: #fff;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 0.95rem;
 }
 
 .modal-desc {
-  font-size: 0.86rem;
-  line-height: 1.45;
+  font-size: 0.8rem;
+  line-height: 1.4;
   color: rgba(255, 255, 255, 0.85);
 }
 
 .marker-img-wrapper {
   background: #ffffff;
-  padding: 14px;
-  border-radius: 12px;
+  padding: 10px;
+  border-radius: 10px;
   display: flex;
   justify-content: center;
 }
 
 .marker-img-wrapper img {
   max-width: 100%;
-  max-height: 260px;
+  max-height: 190px;
   object-fit: contain;
+}
+
+.custom-marker-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px dashed rgba(0, 210, 211, 0.4);
+}
+
+.upload-label {
+  width: 100%;
+  text-align: center;
+  padding: 9px 12px;
+}
+
+.compile-status {
+  font-size: 0.75rem;
+  color: #4cd137;
+  text-align: center;
 }
 
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -283,52 +322,52 @@ html, body {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  gap: 16px;
+  gap: 10px;
   width: 100%;
-  max-width: 900px;
+  max-width: 820px;
   margin: 0 auto;
   pointer-events: none;
 }
 
 .dpad-container,
 .actions-container {
-  background: rgba(14, 16, 23, 0.78);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: rgba(14, 16, 23, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 22px;
-  padding: 12px 14px;
+  border-radius: 18px;
+  padding: 10px 12px;
   pointer-events: auto;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
 .dpad-label {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 700;
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
   color: rgba(255, 255, 255, 0.6);
   text-align: center;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 /* Cruceta de Flechitas (Grid 3x3) */
 .dpad {
   display: grid;
-  grid-template-columns: repeat(3, 54px);
-  grid-template-rows: repeat(3, 54px);
-  gap: 6px;
+  grid-template-columns: repeat(3, 48px);
+  grid-template-rows: repeat(3, 48px);
+  gap: 5px;
   align-items: center;
   justify-items: center;
 }
 
 .dpad-btn {
-  width: 54px;
-  height: 54px;
-  border-radius: 14px;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.22);
   background: rgba(255, 255, 255, 0.12);
   color: #ffffff;
-  font-size: 1.35rem;
+  font-size: 1.2rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -341,12 +380,12 @@ html, body {
   background: linear-gradient(135deg, #00d2d3, #0abde3);
   border-color: #48dbfb;
   transform: scale(0.92);
-  box-shadow: 0 0 16px rgba(10, 189, 227, 0.6);
+  box-shadow: 0 0 14px rgba(10, 189, 227, 0.6);
 }
 
 .dpad-btn.up    { grid-column: 2; grid-row: 1; }
 .dpad-btn.left  { grid-column: 1; grid-row: 2; }
-.dpad-center    { grid-column: 2; grid-row: 2; font-size: 1.3rem; cursor: pointer; }
+.dpad-center    { grid-column: 2; grid-row: 2; font-size: 1.15rem; cursor: pointer; }
 .dpad-btn.right { grid-column: 3; grid-row: 2; }
 .dpad-btn.down  { grid-column: 2; grid-row: 3; }
 
@@ -354,7 +393,7 @@ html, body {
 .action-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: 6px;
 }
 
 .action-btn {
@@ -362,26 +401,22 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  min-width: 68px;
-  height: 62px;
-  padding: 6px 8px;
-  border-radius: 14px;
+  gap: 3px;
+  min-width: 60px;
+  height: 56px;
+  padding: 4px 6px;
+  border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 600;
   cursor: pointer;
   transition: transform 0.1s ease, background 0.15s ease;
 }
 
 .action-btn .emoji {
-  font-size: 1.3rem;
-}
-
-.action-btn:hover {
-  background: rgba(255, 255, 255, 0.18);
+  font-size: 1.15rem;
 }
 
 .action-btn:active,
@@ -391,15 +426,61 @@ html, body {
   transform: scale(0.93);
 }
 
+/* Ajuste específico para celulares (pantallas de 320px a 600px) */
 @media (max-width: 600px) {
-  .top-bar { padding: 8px 12px; }
-  .brand h1 { font-size: 0.88rem; }
-  .dpad {
-    grid-template-columns: repeat(3, 46px);
-    grid-template-rows: repeat(3, 46px);
-    gap: 5px;
+  #ui-overlay {
+    padding: 8px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
   }
-  .dpad-btn { width: 46px; height: 46px; font-size: 1.15rem; }
-  .action-btn { min-width: 56px; height: 54px; font-size: 0.66rem; }
-  .action-btn .emoji { font-size: 1.1rem; }
+  .top-bar {
+    padding: 7px 10px;
+    gap: 6px;
+  }
+  .brand h1 {
+    font-size: 0.84rem;
+  }
+  #status-text {
+    font-size: 0.68rem;
+  }
+  .pill-btn {
+    padding: 5px 9px;
+    font-size: 0.7rem;
+  }
+  .bottom-controls {
+    gap: 6px;
+  }
+  .dpad-container,
+  .actions-container {
+    padding: 7px 8px;
+    border-radius: 15px;
+  }
+  .dpad-label {
+    font-size: 0.54rem;
+    margin-bottom: 4px;
+  }
+  .dpad {
+    grid-template-columns: repeat(3, 38px);
+    grid-template-rows: repeat(3, 38px);
+    gap: 4px;
+  }
+  .dpad-btn {
+    width: 38px;
+    height: 38px;
+    font-size: 1rem;
+    border-radius: 10px;
+  }
+  .action-grid {
+    gap: 4px;
+  }
+  .action-btn {
+    min-width: 46px;
+    width: 48px;
+    height: 46px;
+    font-size: 0.58rem;
+    padding: 3px 2px;
+    border-radius: 10px;
+  }
+  .action-btn .emoji {
+    font-size: 0.98rem;
+  }
 }
