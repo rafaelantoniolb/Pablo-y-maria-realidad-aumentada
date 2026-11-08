@@ -202,7 +202,8 @@ async function initMindARCameraMode() {
     enhanceRendererAndLighting(renderer, scene);
 
     anchor = mindarThree.addAnchor(0);
-    poseTracker.position.set(0, -0.1, 0);
+    // Offset negativo en Y para que los pies de Pablito nazcan más abajo y su cuerpo quede centrado en la pantalla
+    poseTracker.position.set(0, -0.34, 0);
     anchor.group.add(poseTracker);
 
     if (restaurantTableMeshGroup) restaurantTableMeshGroup.visible = false;
@@ -328,7 +329,7 @@ function initInteractive6DoFTableSimulator(customMessage) {
   orbitControls.target.set(0, 0.15, 0);
 
   tableSurfaceGroup.visible = true;
-  tableSurfaceGroup.position.set(0, 0, 0);
+  tableSurfaceGroup.position.set(0, -0.18, 0);
   tableSurfaceGroup.scale.set(1, 1, 1);
   tableSurfaceGroup.rotation.set(0, 0, 0);
   if (restaurantTableMeshGroup) restaurantTableMeshGroup.visible = true;
@@ -420,7 +421,7 @@ function createFloatingNameBanner(text = '👨‍🍳 Pablito el Chef') {
   const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
   const sprite = new THREE.Sprite(mat);
   sprite.scale.set(0.82, 0.205, 1);
-  sprite.position.set(0, 1.62, 0);
+  sprite.position.set(0, 1.44, 0);
   return { sprite, canvas, ctx, tex };
 }
 
