@@ -132,7 +132,7 @@ function enhanceRendererAndLighting(targetRenderer, targetScene) {
   targetRenderer.shadowMap.enabled = true;
   targetRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
   targetRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-  targetRenderer.toneMappingExposure = 1.12;
+  targetRenderer.toneMappingExposure = 1.25;
 
   try {
     const pmremGenerator = new THREE.PMREMGenerator(targetRenderer);
@@ -143,15 +143,20 @@ function enhanceRendererAndLighting(targetRenderer, targetScene) {
     console.warn('Environment map fallback:', e);
   }
 
-  const hemiLight = new THREE.HemisphereLight(0xfff9f2, 0x452c1e, 1.65);
+  const hemiLight = new THREE.HemisphereLight(0xfffcf8, 0xc9a892, 1.9);
   targetScene.add(hemiLight);
 
-  const keyLight = new THREE.DirectionalLight(0xfff4e4, 2.4);
-  keyLight.position.set(2.2, 5.2, 3.5);
+  const keyLight = new THREE.DirectionalLight(0xfff7eb, 2.2);
+  keyLight.position.set(1.8, 4.2, 4.5);
   keyLight.castShadow = true;
   keyLight.shadow.mapSize.width = 1024;
   keyLight.shadow.mapSize.height = 1024;
   targetScene.add(keyLight);
+
+  // Luz frontal suave para que el gorro nunca oscurezca la carita de Pablito
+  const faceFillLight = new THREE.DirectionalLight(0xffefe0, 1.15);
+  faceFillLight.position.set(0, 1.2, 4.0);
+  targetScene.add(faceFillLight);
 
   const rimLight = new THREE.DirectionalLight(0xffb800, 1.0);
   rimLight.position.set(-2.5, 3.0, -2.2);
@@ -488,18 +493,30 @@ function createSmashBurgerMesh(scale = 1) {
 
 function buildChibiPablitoChef() {
   // Materiales idénticos a la plantilla subida (Niño Chef Chibi "Pablito")
-  const skinMat = new THREE.MeshStandardMaterial({ color: 0xffcbb0, roughness: 0.45, metalness: 0.02 });
-  const blushMat = new THREE.MeshStandardMaterial({ color: 0xf49082, roughness: 0.55 });
+  // Piel durazno clara y luminosa con ligera auto-iluminación cálida para que nunca se vea oscura
+  const skinMat = new THREE.MeshStandardMaterial({
+    color: 0xffd6bd,
+    emissive: 0xffbfa0,
+    emissiveIntensity: 0.18,
+    roughness: 0.42,
+    metalness: 0.01
+  });
+  const blushMat = new THREE.MeshStandardMaterial({
+    color: 0xf79486,
+    emissive: 0xf79486,
+    emissiveIntensity: 0.12,
+    roughness: 0.5
+  });
   const hairMat = new THREE.MeshStandardMaterial({ color: 0x3b2214, roughness: 0.55, metalness: 0.05 });
   const coatMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35, metalness: 0.04 });
-  const coatShadeMat = new THREE.MeshStandardMaterial({ color: 0xe6eff7, roughness: 0.4 });
+  const coatShadeMat = new THREE.MeshStandardMaterial({ color: 0xdce8f5, roughness: 0.38 });
   const redPipingMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.35, metalness: 0.08 });
   const shoeRedMat = new THREE.MeshStandardMaterial({ color: 0xd61f1f, roughness: 0.35, metalness: 0.1 });
   const pantsMat = new THREE.MeshStandardMaterial({ color: 0x36363b, roughness: 0.65 });
-  const eyeWhiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.15 });
+  const eyeWhiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.15, roughness: 0.15 });
   const irisBrownMat = new THREE.MeshStandardMaterial({ color: 0x4a2612, roughness: 0.15 });
   const pupilBlackMat = new THREE.MeshStandardMaterial({ color: 0x120a06, roughness: 0.1 });
-  const teethMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 });
+  const teethMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.15, roughness: 0.2 });
   const steelMat = new THREE.MeshStandardMaterial({ color: 0xdde3ea, metalness: 0.85, roughness: 0.2 });
   const castIronMat = new THREE.MeshStandardMaterial({ color: 0x1e2022, metalness: 0.65, roughness: 0.4 });
   const goldMat = new THREE.MeshStandardMaterial({ color: 0xffb800, metalness: 0.65, roughness: 0.25 });
@@ -721,57 +738,58 @@ function buildChibiPablitoChef() {
 
   // ==========================================
   // 3) CABELLO CASTAÑO CON FLEQUILLO PEINADO DE LADO Y PUNTAS LATERALES
+  // (Sin tapar la frente ni los ojos — despejado como en la plantilla)
   // ==========================================
   const hairGroup = new THREE.Group();
   rig.head.add(hairGroup);
 
-  // Casco capilar trasero y lateral
-  const backHairGeo = new THREE.SphereGeometry(0.254, 32, 24, 0, Math.PI * 2, 0, Math.PI * 0.62);
-  backHairGeo.scale(1.09, 0.98, 0.98);
+  // Casco capilar que cubre SOLO la coronilla y la nuca (inclinado hacia atrás para dejar toda la cara limpia)
+  const backHairGeo = new THREE.SphereGeometry(0.252, 32, 24, 0, Math.PI * 2, 0, Math.PI * 0.44);
+  backHairGeo.scale(1.08, 0.96, 0.96);
   const backHair = new THREE.Mesh(backHairGeo, hairMat);
-  backHair.rotation.x = -0.22;
-  backHair.position.y = 0.02;
+  backHair.rotation.x = -0.58;
+  backHair.position.set(0, 0.03, -0.02);
   hairGroup.add(backHair);
 
-  // Flequillo grande peinado hacia la izquierda (como en la plantilla)
-  const bangMainGeo = new THREE.CapsuleGeometry(0.055, 0.22, 14, 20);
-  bangMainGeo.scale(1, 1, 0.55);
+  // Flequillo superior peinado de lado (bien arriba en la frente, por encima de las cejas)
+  const bangMainGeo = new THREE.CapsuleGeometry(0.044, 0.19, 14, 20);
+  bangMainGeo.scale(1, 0.85, 0.55);
   const bangMain = new THREE.Mesh(bangMainGeo, hairMat);
-  bangMain.position.set(-0.02, 0.145, 0.195);
-  bangMain.rotation.z = Math.PI / 2 - 0.18;
-  bangMain.rotation.y = -0.12;
+  bangMain.position.set(-0.015, 0.155, 0.178);
+  bangMain.rotation.z = Math.PI / 2 - 0.14;
+  bangMain.rotation.y = -0.08;
   hairGroup.add(bangMain);
 
-  const bangSideGeo = new THREE.CapsuleGeometry(0.042, 0.14, 12, 16);
-  bangSideGeo.scale(1, 1, 0.5);
+  const bangSideGeo = new THREE.CapsuleGeometry(0.036, 0.12, 12, 16);
+  bangSideGeo.scale(1, 0.85, 0.5);
   const bangSide = new THREE.Mesh(bangSideGeo, hairMat);
-  bangSide.position.set(-0.11, 0.13, 0.185);
-  bangSide.rotation.z = Math.PI / 2 - 0.32;
-  bangSide.rotation.y = -0.35;
+  bangSide.position.set(-0.115, 0.142, 0.165);
+  bangSide.rotation.z = Math.PI / 2 - 0.28;
+  bangSide.rotation.y = -0.32;
   hairGroup.add(bangSide);
 
   // Mechones puntiagudos que salen a la derecha bajo el gorro (rasgo icónico de la plantilla)
-  const spike1Geo = new THREE.ConeGeometry(0.048, 0.14, 16);
+  const spike1Geo = new THREE.ConeGeometry(0.045, 0.135, 16);
   spike1Geo.scale(1, 1, 0.55);
   const spike1 = new THREE.Mesh(spike1Geo, hairMat);
-  spike1.position.set(0.24, 0.135, 0.08);
+  spike1.position.set(0.24, 0.14, 0.07);
   spike1.rotation.z = -1.25;
   spike1.rotation.y = -0.25;
   hairGroup.add(spike1);
 
   const spike2 = new THREE.Mesh(spike1Geo, hairMat);
-  spike2.scale.set(0.85, 0.85, 0.5);
-  spike2.position.set(0.22, 0.095, 0.11);
+  spike2.scale.set(0.82, 0.82, 0.5);
+  spike2.position.set(0.22, 0.10, 0.10);
   spike2.rotation.z = -1.4;
   hairGroup.add(spike2);
 
-  // Patillas frente a las orejas
-  const sideburnGeo = new THREE.CapsuleGeometry(0.022, 0.08, 10, 12);
+  // Patillas cortas junto a las orejas (sin invadir las mejillas)
+  const sideburnGeo = new THREE.CapsuleGeometry(0.018, 0.065, 10, 12);
   const sideburnL = new THREE.Mesh(sideburnGeo, hairMat);
-  sideburnL.position.set(-0.235, 0.04, 0.09);
+  sideburnL.position.set(-0.242, 0.055, 0.06);
   sideburnL.rotation.z = 0.12;
   const sideburnR = sideburnL.clone();
-  sideburnR.position.x = 0.235;
+  sideburnR.position.x = 0.242;
   sideburnR.rotation.z = -0.12;
   hairGroup.add(sideburnL, sideburnR);
 
@@ -814,47 +832,48 @@ function buildChibiPablitoChef() {
   }
 
   // ==========================================
-  // 5) BRAZOS ARTICULADOS CON MANGAS ARREMANGADAS Y MANOS NATURALES
+  // 5) BRAZOS ARTICULADOS VISIBLES CON MANGAS ARREMANGADAS Y MANOS NATURALES
   // ==========================================
   function createChefArm(sign) {
     const shoulder = new THREE.Group();
-    shoulder.position.set(sign * 0.175, 0.285, 0);
+    // Hombros más separados del torso para que los brazos se vean completos y definidos
+    shoulder.position.set(sign * 0.188, 0.275, 0.015);
 
-    const shoulderBall = new THREE.Mesh(new THREE.SphereGeometry(0.048, 18, 18), coatMat);
+    const shoulderBall = new THREE.Mesh(new THREE.SphereGeometry(0.056, 20, 20), coatMat);
     shoulder.add(shoulderBall);
 
-    const upperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.044, 0.040, 0.13, 18), coatMat);
-    upperArm.position.y = -0.065;
+    const upperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.047, 0.145, 20), coatMat);
+    upperArm.position.y = -0.072;
     shoulder.add(upperArm);
 
     const elbow = new THREE.Group();
-    elbow.position.y = -0.13;
+    elbow.position.y = -0.145;
     shoulder.add(elbow);
 
-    const elbowJoint = new THREE.Mesh(new THREE.SphereGeometry(0.039, 16, 16), coatMat);
+    const elbowJoint = new THREE.Mesh(new THREE.SphereGeometry(0.046, 18, 18), coatMat);
     elbow.add(elbowJoint);
 
-    const forearm = new THREE.Mesh(new THREE.CylinderGeometry(0.039, 0.036, 0.11, 18), coatMat);
-    forearm.position.y = -0.055;
+    const forearm = new THREE.Mesh(new THREE.CylinderGeometry(0.046, 0.043, 0.125, 20), coatMat);
+    forearm.position.y = -0.062;
     elbow.add(forearm);
 
-    // Puño blanco doblado (arremangado como en la plantilla)
-    const rolledCuff = new THREE.Mesh(new THREE.TorusGeometry(0.038, 0.012, 12, 20), coatShadeMat);
+    // Puño blanco doblado (arremangado con borde azulado suave como en la plantilla)
+    const rolledCuff = new THREE.Mesh(new THREE.TorusGeometry(0.046, 0.015, 14, 22), coatShadeMat);
     rolledCuff.rotation.x = Math.PI / 2;
-    rolledCuff.position.y = -0.105;
+    rolledCuff.position.y = -0.118;
     elbow.add(rolledCuff);
 
     const hand = new THREE.Group();
-    hand.position.y = -0.13;
+    hand.position.y = -0.15;
     elbow.add(hand);
 
-    const palmGeo = new THREE.SphereGeometry(0.038, 18, 18);
-    palmGeo.scale(1.0, 1.05, 0.82);
+    const palmGeo = new THREE.SphereGeometry(0.045, 20, 20);
+    palmGeo.scale(1.05, 1.08, 0.85);
     const palm = new THREE.Mesh(palmGeo, skinMat);
     hand.add(palm);
 
-    const thumb = new THREE.Mesh(new THREE.CapsuleGeometry(0.011, 0.02, 8, 8), skinMat);
-    thumb.position.set(-sign * 0.03, 0.005, 0.018);
+    const thumb = new THREE.Mesh(new THREE.CapsuleGeometry(0.013, 0.024, 8, 8), skinMat);
+    thumb.position.set(-sign * 0.036, 0.006, 0.02);
     thumb.rotation.z = sign * 0.6;
     hand.add(thumb);
 
@@ -1163,32 +1182,32 @@ function updateNaturalChefAnimations(delta) {
     footRRot = [-swingR * 0.35, 0, 0];
 
     // Brazos: balanceo natural opuesto a las piernas (nunca giran hacia atrás de forma antinatural)
-    // Codos siempre ligeramente flexionados hacia adelante (-0.35 rad)
+    // Codos siempre ligeramente flexionados hacia adelante (-0.35 rad) y separados del cuerpo
     const armSwingL = -Math.sin(walkCycle) * (isRun ? 0.45 : 0.28);
     const armSwingR = Math.sin(walkCycle) * (isRun ? 0.45 : 0.28);
 
-    armLRot = [armSwingL - 0.08, 0, 0.16];
-    forearmLRot = [isRun ? -0.65 : -0.35, 0, 0];
+    armLRot = [armSwingL - 0.08, 0, -0.28];
+    forearmLRot = [isRun ? -0.65 : -0.35, 0, 0.12];
 
-    armRRot = [armSwingR - 0.08, 0, -0.16];
-    forearmRRot = [isRun ? -0.65 : -0.35, 0, 0];
+    armRRot = [armSwingR - 0.08, 0, 0.28];
+    forearmRRot = [isRun ? -0.65 : -0.35, 0, -0.12];
 
   } else if (currentAction === 'Wave') {
     // 👋 SALUDAR NATURAL:
     // Mano derecha se levanta AL FRENTE y ARRIBA (nunca hacia atrás) y saluda de lado a lado.
-    // Mano izquierda descansa con estilo en la cintura (como en la plantilla).
+    // Mano izquierda en la cintura con el codo hacia afuera (como en la plantilla).
     const waveOsc = Math.sin(animClock * 11);
     pelvisY = 0.32 + Math.sin(animClock * 3) * 0.006;
     torsoRot = [0, -0.08, 0.03];
     headRot = [0.02, 0.08, -0.06];
 
-    // Brazo izquierdo en la jarra/cintura (igual a la plantilla)
-    armLRot = [0.05, 0, 0.52];
-    forearmLRot = [-0.45, 0, -0.82];
+    // Brazo izquierdo en jarra (codo hacia afuera -Z, antebrazo hacia la cintura +Z)
+    armLRot = [-0.12, 0, -0.68];
+    forearmLRot = [-0.35, 0, 1.05];
 
-    // Brazo derecho levantado hacia adelante y afuera, antebrazo arriba saludando
-    armRRot = [-0.75, -0.15, -0.78];
-    forearmRRot = [-1.15, 0, waveOsc * 0.32 - 0.15];
+    // Brazo derecho levantado hacia adelante y hacia afuera (+Z), antebrazo arriba saludando
+    armRRot = [-0.65, 0.15, 0.85];
+    forearmRRot = [-1.10, 0, 0.55 + waveOsc * 0.32];
 
     legLRot = [0, 0, -0.04];
     legRRot = [0, 0, 0.04];
@@ -1202,12 +1221,12 @@ function updateNaturalChefAnimations(delta) {
     headRot = [0.14, Math.sin(flipCycle * 0.5) * 0.08, 0];
 
     // Brazo izquierdo al frente sazonando
-    armLRot = [-0.65 + Math.sin(flipCycle) * 0.12, 0.15, 0.22];
-    forearmLRot = [-0.68, 0, -0.15];
+    armLRot = [-0.65 + Math.sin(flipCycle) * 0.12, -0.15, -0.32];
+    forearmLRot = [-0.68, 0, 0.25];
 
     // Brazo derecho al frente manejando la espátula sobre la parrilla
-    armRRot = [-0.75 - Math.abs(Math.sin(flipCycle)) * 0.25, -0.12, -0.20];
-    forearmRRot = [-0.72 + Math.cos(flipCycle) * 0.28, 0, 0.12];
+    armRRot = [-0.75 - Math.abs(Math.sin(flipCycle)) * 0.25, 0.12, 0.32];
+    forearmRRot = [-0.72 + Math.cos(flipCycle) * 0.28, 0, -0.25];
 
     legLRot = [0, 0, -0.05];
     legRRot = [0, 0, 0.05];
@@ -1220,12 +1239,12 @@ function updateNaturalChefAnimations(delta) {
     torsoRot = [0.04, -Math.sin(beat) * 0.15, -Math.sin(beat) * 0.06];
     headRot = [Math.abs(Math.sin(beat * 2)) * 0.06, Math.sin(beat) * 0.14, Math.sin(beat) * 0.08];
 
-    // Brazos al frente llevando el ritmo (siempre adelante del torso)
-    armLRot = [-0.55 + Math.sin(beat) * 0.35, 0, 0.45 + Math.cos(beat) * 0.15];
-    forearmLRot = [-0.85, 0, -0.2];
+    // Brazos abiertos hacia afuera y adelante llevando el ritmo
+    armLRot = [-0.55 + Math.sin(beat) * 0.35, 0, -0.55 - Math.cos(beat) * 0.18];
+    forearmLRot = [-0.85, 0, 0.25];
 
-    armRRot = [-0.55 - Math.sin(beat) * 0.35, 0, -0.45 + Math.cos(beat) * 0.15];
-    forearmRRot = [-0.85, 0, 0.2];
+    armRRot = [-0.55 - Math.sin(beat) * 0.35, 0, 0.55 - Math.cos(beat) * 0.18];
+    forearmRRot = [-0.85, 0, -0.25];
 
     legLRot = [-Math.max(0, Math.sin(beat)) * 0.32, 0, -0.05];
     shinLRot = [Math.max(0, Math.sin(beat)) * 0.55, 0, 0];
@@ -1241,11 +1260,11 @@ function updateNaturalChefAnimations(delta) {
     torsoRot = [-0.06 * jumpArc, 0, 0];
     headRot = [-0.08 * jumpArc, 0, 0];
 
-    // Brazos arriba celebrando (hacia adelante y arriba)
-    armLRot = [-1.15 * jumpArc, 0, 0.55];
+    // Brazos abiertos hacia afuera y arriba celebrando
+    armLRot = [-1.15 * jumpArc, 0, -0.65 * jumpArc - 0.25];
     forearmLRot = [-0.45, 0, 0];
 
-    armRRot = [-1.15 * jumpArc, 0, -0.55];
+    armRRot = [-1.15 * jumpArc, 0, 0.65 * jumpArc + 0.25];
     forearmRRot = [-0.45, 0, 0];
 
     legLRot = [-0.25 * jumpArc, 0, -0.06];
@@ -1255,7 +1274,7 @@ function updateNaturalChefAnimations(delta) {
 
   } else {
     // 👨‍🍳 POSE IDLE (REPOSO):
-    // Pose con manos en la cintura como la plantilla de Pablito + respiración suave y mirada viva
+    // Pose con manos en la cintura y codos BIEN ABIERTOS hacia afuera como la plantilla de Pablito
     const breath = Math.sin(animClock * 2.4);
     const lookCycle = Math.sin(animClock * 1.1);
 
@@ -1263,12 +1282,13 @@ function updateNaturalChefAnimations(delta) {
     torsoRot = [breath * 0.015, lookCycle * 0.04, 0];
     headRot = [breath * 0.02, lookCycle * 0.09, Math.sin(animClock * 0.8) * 0.03];
 
-    // Brazos en jarra (manos apoyadas en la cintura con codos hacia afuera como la imagen)
-    armLRot = [0.06, 0, 0.50 + breath * 0.02];
-    forearmLRot = [-0.42, 0, -0.82];
+    // Brazos en jarra: hombro abre el codo hacia afuera (-Z en izq, +Z en der)
+    // y el antebrazo dobla hacia adentro (+Z en izq, -Z en der) apoyando las manos en la cintura
+    armLRot = [-0.14, 0, -0.68 - breath * 0.03];
+    forearmLRot = [-0.35, 0, 1.08];
 
-    armRRot = [0.06, 0, -0.50 - breath * 0.02];
-    forearmRRot = [-0.42, 0, 0.82];
+    armRRot = [-0.14, 0, 0.68 + breath * 0.03];
+    forearmRRot = [-0.35, 0, -1.08];
 
     legLRot = [0, 0, -0.035];
     shinLRot = [0.03, 0, 0];
